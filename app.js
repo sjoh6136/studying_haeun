@@ -543,13 +543,19 @@ function initMixer() {
         const updateVolume = () => {
             const vol = parseFloat(slider.value) / 100;
             
-            // Get or create audio object JIT (Exactly like working music logic)
+            // Get or create audio object JIT
             if (!state.sounds[soundKey]) {
                 const src = `./assets/sounds/${soundKey}.mp3`;
-                console.log(`Loading sound: ${soundKey} from ${src}`);
-                state.sounds[soundKey] = new Audio(src);
-                state.sounds[soundKey].loop = true;
-                state.sounds[soundKey].preload = 'metadata';
+                const audio = new Audio();
+                audio.src = src;
+                audio.loop = true;
+                audio.preload = 'metadata';
+                state.sounds[soundKey] = audio;
+                
+                console.log(`[Audio Debug] Initializing ${soundKey}:`, {
+                    requestedPath: src,
+                    resolvedURL: audio.src
+                });
             }
             
             const audio = state.sounds[soundKey];
@@ -557,10 +563,17 @@ function initMixer() {
             
             if (vol > 0) {
                 if (audio.paused) {
+                    console.log(`[Audio Debug] Playing ${soundKey}...`);
                     audio.play()
+                        .then(() => console.log(`[Audio Debug] SUCCESS: ${soundKey} is playing.`))
                         .catch(err => {
-                            console.error(`Error playing ${soundKey}:`, err);
-                            // No alert to prevent annoying popups, just log to console
+                            console.error(`[Audio Debug] FAILED: ${soundKey} play error:`, err);
+                            console.log(`[Audio Debug] Current Audio State for ${soundKey}:`, {
+                                error: audio.error,
+                                networkState: audio.networkState,
+                                readyState: audio.readyState,
+                                src: audio.src
+                            });
                         });
                 }
                 channel.classList.add('active');
