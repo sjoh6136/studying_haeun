@@ -1,67 +1,9 @@
 // --- App State & Audio Management ---
-function createAutocorrectAudio(src) {
-    const isMusic = src.includes('/music/');
-    const folderName = isMusic ? 'music' : 'sounds';
-    const fileNameWithExt = src.substring(src.lastIndexOf('/') + 1);
-    const dotIdx = fileNameWithExt.lastIndexOf('.');
-    const name = fileNameWithExt.substring(0, dotIdx);
-    const ext = fileNameWithExt.substring(dotIdx);
-
-    const capitalizedFolder = folderName.charAt(0).toUpperCase() + folderName.slice(1);
-    const capitalizedFile = name.charAt(0).toUpperCase() + name.slice(1);
-    const uppercaseFile = name.toUpperCase();
-    const lowercaseExt = ext.toLowerCase();
-    const uppercaseExt = ext.toUpperCase();
-
-    const folderBases = [
-        `./assets/${folderName}/`,
-        `./Assets/${folderName}/`,
-        `./assets/${capitalizedFolder}/`,
-        `./Assets/${capitalizedFolder}/`
-    ];
-
-    const filenames = [
-        name + lowercaseExt,
-        capitalizedFile + lowercaseExt,
-        uppercaseFile + lowercaseExt,
-        name + uppercaseExt,
-        capitalizedFile + uppercaseExt,
-        uppercaseFile + uppercaseExt
-    ];
-
-    const candidates = [];
-    folderBases.forEach(fb => {
-        filenames.forEach(fn => {
-            candidates.push(fb + fn);
-        });
+function createSimpleAudio(src) {
+    const audio = new Audio(src);
+    audio.addEventListener('error', (e) => {
+        console.error(`Failed to load audio: ${src}`, e);
     });
-
-    const uniqueCandidates = [...new Set(candidates)];
-    const audio = new Audio(uniqueCandidates[0]);
-    let attempt = 0;
-
-    audio.addEventListener('error', function handleError(e) {
-        attempt++;
-        if (attempt < uniqueCandidates.length) {
-            console.log(`Failed to load ${audio.src}, trying fallback: ${uniqueCandidates[attempt]}`);
-            
-            const currentVol = audio.volume;
-            const currentLoop = audio.loop;
-            const wasPlaying = !audio.paused;
-            
-            audio.src = uniqueCandidates[attempt];
-            audio.volume = currentVol;
-            audio.loop = currentLoop;
-            audio.load();
-            
-            if (wasPlaying) {
-                audio.play().catch(err => console.log("Autocorrect play block: ", err));
-            }
-        } else {
-            console.error(`All attempts failed to load audio for: ${src}`);
-        }
-    });
-
     return audio;
 }
 
@@ -82,18 +24,18 @@ const state = {
 
     // Audio Files (Local mp3 assets)
     sounds: {
-        rain: createAutocorrectAudio('./assets/sounds/rain.mp3'),
-        fireplace: createAutocorrectAudio('./assets/sounds/fireplace.mp3'),
-        cafe: createAutocorrectAudio('./assets/sounds/cafe.mp3'),
-        forest: createAutocorrectAudio('./assets/sounds/forest.mp3')
+        rain: createSimpleAudio('./assets/sounds/rain.mp3'),
+        fireplace: createSimpleAudio('./assets/sounds/fireplace.mp3'),
+        cafe: createSimpleAudio('./assets/sounds/cafe.mp3'),
+        forest: createSimpleAudio('./assets/sounds/forest.mp3')
     },
 
     // Local Music Loop Assets
     music: {
-        lofigirl: createAutocorrectAudio('./assets/music/lofigirl.mp3'),
-        chillhop: createAutocorrectAudio('./assets/music/chillhop.mp3'),
-        synthwave: createAutocorrectAudio('./assets/music/synthwave.mp3'),
-        jazz: createAutocorrectAudio('./assets/music/jazz.mp3')
+        lofigirl: createSimpleAudio('./assets/music/lofigirl.mp3'),
+        chillhop: createSimpleAudio('./assets/music/chillhop.mp3'),
+        synthwave: createSimpleAudio('./assets/music/synthwave.mp3'),
+        jazz: createSimpleAudio('./assets/music/jazz.mp3')
     },
     activeMusic: 'lofigirl',
     musicMode: 'local', // 'local' or 'youtube'
@@ -122,7 +64,13 @@ const state = {
 // Configure all ambient loops
 Object.values(state.sounds).forEach(audio => {
     audio.loop = true;
-    audio.preload = 'auto';
+    audio.preload = 'metadata'; // Use 'metadata' to avoid clogging network for large files
+});
+
+// Configure local music loops
+Object.values(state.music).forEach(audio => {
+    audio.loop = true;
+    audio.preload = 'metadata';
 });
 
 // Tree grow helper stages
@@ -618,7 +566,15 @@ function initMixer() {
             
             if (vol > 0) {
                 if (audio.paused) {
-                    audio.play().catch(err => console.log("Audio play blocked by browser policy until interaction: ", err));
+                    console.log(`Attempting to play: ${soundKey} (${audio.src})`);
+                    audio.play()
+                        .then(() => console.log(`Successfully playing: ${soundKey}`))
+                        .catch(err => {
+                            console.error(`Error playing ${soundKey}:`, err);
+                            if (audio.readyState < 2) {
+                                console.warn(`${soundKey} is still loading... Current state: ${audio.readyState} (Need 2 or higher)`);
+                            }
+                        });
                 }
                 channel.classList.add('active');
                 if (soundKey === 'rain') rainOverlay.classList.add('active');
@@ -655,7 +611,7 @@ function initPlayer() {
     // Preload & Loop local music
     Object.values(state.music).forEach(audio => {
         audio.loop = true;
-        audio.preload = 'auto';
+        audio.preload = 'metadata';
     });
 
     if (!window.YT) {
