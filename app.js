@@ -24,18 +24,18 @@ const state = {
 
     // Audio Files (Local mp3 assets)
     sounds: {
-        rain: createSimpleAudio('assets/sounds/rain.mp3'),
-        fireplace: createSimpleAudio('assets/sounds/fireplace.mp3'),
-        cafe: createSimpleAudio('assets/sounds/cafe.mp3'),
-        forest: createSimpleAudio('assets/sounds/forest.mp3')
+        rain: createSimpleAudio('./assets/sounds/rain.mp3'),
+        fireplace: createSimpleAudio('./assets/sounds/fireplace.mp3'),
+        cafe: createSimpleAudio('./assets/sounds/cafe.mp3'),
+        forest: createSimpleAudio('./assets/sounds/forest.mp3')
     },
 
     // Local Music Loop Assets
     music: {
-        lofigirl: createSimpleAudio('assets/music/lofigirl.mp3'),
-        chillhop: createSimpleAudio('assets/music/chillhop.mp3'),
-        synthwave: createSimpleAudio('assets/music/synthwave.mp3'),
-        jazz: createSimpleAudio('assets/music/jazz.mp3')
+        lofigirl: createSimpleAudio('./assets/music/lofigirl.mp3'),
+        chillhop: createSimpleAudio('./assets/music/chillhop.mp3'),
+        synthwave: createSimpleAudio('./assets/music/synthwave.mp3'),
+        jazz: createSimpleAudio('./assets/music/jazz.mp3')
     },
     activeMusic: 'lofigirl',
     musicMode: 'local', // 'local' or 'youtube'
