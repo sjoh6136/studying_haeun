@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
 const db = require('./db_handler');
 
 const path = require('path');
@@ -40,9 +39,8 @@ const isAdmin = (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
         
-        await db.users.create({ username, password: hashedPassword });
+        await db.users.create({ username, password });
         
         res.status(201).json({ message: 'User registered successfully' });
     } catch (err) {
@@ -56,7 +54,7 @@ app.post('/api/auth/login', async (req, res) => {
         
         const user = await db.users.findByUsername(username);
         
-        if (!user || !(await bcrypt.compare(password, user.password))) {
+        if (!user || password !== user.password) {
             return res.status(401).json({ message: 'Invalid username or password' });
         }
         
@@ -80,14 +78,13 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
         }
         
-        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        const isMatch = currentPassword === user.password;
         if (!isMatch) {
             return res.status(400).json({ message: '현재 비밀번호가 일치하지 않습니다.' });
         }
         
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
         await db.users.update(user.id, { 
-            password: hashedPassword 
+            password: newPassword 
         });
         
         res.json({ message: '비밀번호가 성공적으로 변경되었습니다.' });

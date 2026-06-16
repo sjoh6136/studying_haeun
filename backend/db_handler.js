@@ -18,7 +18,7 @@ const defaultSchema = {
             id: 1,
             username: 'admin',
             email: 'admin@lofi.com',
-            password: '$2b$10$xTAtx2hkqqjzI/uEnrIEf.AgWTJzdTb5ZDi9kaYuLNCNRZwsVIyTu', // bcrypt for 'admin123'
+            password: 'admin123', // plain text for 'admin123'
             role: 'admin',
             created_at: new Date().toISOString()
         }
@@ -140,7 +140,7 @@ if (dbMode === 'sheets') {
             const users = await fetchTable('users');
             if (users.length === 0) {
                 console.log('No users found in Google Sheets. Seeding default admin user...');
-                const adminPasswordHash = '$2b$10$xTAtx2hkqqjzI/uEnrIEf.AgWTJzdTb5ZDi9kaYuLNCNRZwsVIyTu'; // 'admin123'
+                const adminPasswordHash = 'admin123'; // 'admin123'
                 const defaultAdmin = {
                     id: 1,
                     username: 'admin',
