@@ -596,7 +596,7 @@ body {
 .mixer-channel {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 8px;
     background: rgba(255,255,255,0.01);
     padding: 8px 12px;
     border-radius: var(--radius-sm);
@@ -613,7 +613,7 @@ body {
     font-family: inherit;
     font-size: 0.85rem;
     cursor: pointer;
-    width: 145px;
+    width: 125px;
     flex-shrink: 0;
     text-align: left;
     transition: var(--transition-smooth);
@@ -2742,6 +2742,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initPlayer();
     initMemo();
     initSettings();
+    initUserSettings();
     initFocusMode();
     initBreathingGuide();
     initStretchReminder();
@@ -4424,6 +4425,67 @@ async function saveStudySession(duration, treePlanted) {
     }
 }
 
+function initUserSettings() {
+    const settingsBtn = document.getElementById('btn-user-settings');
+    const settingsOverlay = document.getElementById('user-settings-overlay');
+    const closeSettingsBtn = document.getElementById('btn-close-user-settings');
+    const changePwdForm = document.getElementById('form-change-password');
+
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            if (settingsOverlay) {
+                settingsOverlay.classList.add('active');
+            }
+        });
+    }
+
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', () => {
+            if (settingsOverlay) {
+                settingsOverlay.classList.remove('active');
+                if (changePwdForm) changePwdForm.reset();
+            }
+        });
+    }
+
+    if (settingsOverlay) {
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) {
+                settingsOverlay.classList.remove('active');
+                if (changePwdForm) changePwdForm.reset();
+            }
+        });
+    }
+
+    if (changePwdForm) {
+        changePwdForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('change-pwd-current').value.trim();
+            const newPassword = document.getElementById('change-pwd-new').value.trim();
+            const confirmPassword = document.getElementById('change-pwd-confirm').value.trim();
+
+            if (newPassword !== confirmPassword) {
+                alert('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+                return;
+            }
+
+            try {
+                const response = await apiFetch('/auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+
+                alert(response.message || '비밀번호가 성공적으로 변경되었습니다.');
+                settingsOverlay.classList.remove('active');
+                changePwdForm.reset();
+            } catch (err) {
+                alert(err.message || '비밀번호 변경에 실패했습니다.');
+            }
+        });
+    }
+}
+
 </script>
 </head>
 <body>
@@ -4456,6 +4518,9 @@ async function saveStudySession(duration, treePlanted) {
                     <span id="display-username" class="username-text"></span>
                     <button id="btn-admin-view" class="icon-button admin-only" title="관리자 페이지" style="display: none;">
                         <span class="material-symbols-rounded">admin_panel_settings</span>
+                    </button>
+                    <button id="btn-user-settings" class="icon-button" title="비밀번호 변경">
+                        <span class="material-symbols-rounded">manage_accounts</span>
                     </button>
                     <button id="btn-logout" class="icon-button" title="로그아웃">
                         <span class="material-symbols-rounded">logout</span>
@@ -5026,6 +5091,35 @@ async function saveStudySession(duration, treePlanted) {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Settings Modal Overlay (Password Change) -->
+    <div class="user-detail-overlay" id="user-settings-overlay">
+        <div class="glass-card user-detail-card" style="width: 450px; max-height: 380px;">
+            <div class="user-detail-header">
+                <h2>비밀번호 수정</h2>
+                <button id="btn-close-user-settings" class="icon-button" title="닫기">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="user-detail-body">
+                <form id="form-change-password">
+                    <div class="form-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                        <label for="change-pwd-current">현재 비밀번호</label>
+                        <input type="password" id="change-pwd-current" class="form-input" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 14px; color: #ffffff;" placeholder="현재 비밀번호 입력" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                        <label for="change-pwd-new">새 비밀번호</label>
+                        <input type="password" id="change-pwd-new" class="form-input" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 14px; color: #ffffff;" placeholder="새 비밀번호 입력" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;">
+                        <label for="change-pwd-confirm">새 비밀번호 확인</label>
+                        <input type="password" id="change-pwd-confirm" class="form-input" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 14px; color: #ffffff;" placeholder="새 비밀번호 다시 입력" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">비밀번호 변경</button>
+                </form>
             </div>
         </div>
     </div>

@@ -349,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initPlayer();
     initMemo();
     initSettings();
+    initUserSettings();
     initFocusMode();
     initBreathingGuide();
     initStretchReminder();
@@ -2028,5 +2029,66 @@ async function saveStudySession(duration, treePlanted) {
         });
         localStorage.setItem('study-space-sessions', JSON.stringify(state.sessionHistory));
         updateStatsTab();
+    }
+}
+
+function initUserSettings() {
+    const settingsBtn = document.getElementById('btn-user-settings');
+    const settingsOverlay = document.getElementById('user-settings-overlay');
+    const closeSettingsBtn = document.getElementById('btn-close-user-settings');
+    const changePwdForm = document.getElementById('form-change-password');
+
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            if (settingsOverlay) {
+                settingsOverlay.classList.add('active');
+            }
+        });
+    }
+
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', () => {
+            if (settingsOverlay) {
+                settingsOverlay.classList.remove('active');
+                if (changePwdForm) changePwdForm.reset();
+            }
+        });
+    }
+
+    if (settingsOverlay) {
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) {
+                settingsOverlay.classList.remove('active');
+                if (changePwdForm) changePwdForm.reset();
+            }
+        });
+    }
+
+    if (changePwdForm) {
+        changePwdForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('change-pwd-current').value.trim();
+            const newPassword = document.getElementById('change-pwd-new').value.trim();
+            const confirmPassword = document.getElementById('change-pwd-confirm').value.trim();
+
+            if (newPassword !== confirmPassword) {
+                alert('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+                return;
+            }
+
+            try {
+                const response = await apiFetch('/auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+
+                alert(response.message || '비밀번호가 성공적으로 변경되었습니다.');
+                settingsOverlay.classList.remove('active');
+                changePwdForm.reset();
+            } catch (err) {
+                alert(err.message || '비밀번호 변경에 실패했습니다.');
+            }
+        });
     }
 }

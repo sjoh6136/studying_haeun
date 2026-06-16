@@ -305,16 +305,17 @@ const db = {
         async listAll() {
             return await fetchTable('users');
         },
-        async update(id, { username, email }) {
+        async update(id, { username, email, password }) {
             const items = await fetchTable('users');
             const index = items.findIndex(u => Number(u.id) === Number(id));
             if (index === -1) throw new Error('사용자를 찾을 수 없습니다.');
 
             if (email && items.some(u => u.email === email && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 이메일입니다.');
-            if (items.some(u => u.username === username && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 사용자명입니다.');
+            if (username && items.some(u => u.username === username && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 사용자명입니다.');
 
-            items[index].username = username;
-            items[index].email = email || '';
+            if (username !== undefined) items[index].username = username;
+            if (email !== undefined) items[index].email = email || '';
+            if (password !== undefined) items[index].password = password;
 
             await saveTable('users', items);
             return items[index];

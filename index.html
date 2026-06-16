@@ -45,6 +45,9 @@
                     <button id="btn-admin-view" class="icon-button admin-only" title="관리자 페이지" style="display: none;">
                         <span class="material-symbols-rounded">admin_panel_settings</span>
                     </button>
+                    <button id="btn-user-settings" class="icon-button" title="비밀번호 변경">
+                        <span class="material-symbols-rounded">manage_accounts</span>
+                    </button>
                     <button id="btn-logout" class="icon-button" title="로그아웃">
                         <span class="material-symbols-rounded">logout</span>
                     </button>
@@ -614,6 +617,35 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Settings Modal Overlay (Password Change) -->
+    <div class="user-detail-overlay" id="user-settings-overlay">
+        <div class="glass-card user-detail-card" style="width: 450px; max-height: 380px;">
+            <div class="user-detail-header">
+                <h2>비밀번호 수정</h2>
+                <button id="btn-close-user-settings" class="icon-button" title="닫기">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="user-detail-body">
+                <form id="form-change-password">
+                    <div class="form-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                        <label for="change-pwd-current">현재 비밀번호</label>
+                        <input type="password" id="change-pwd-current" class="form-input" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 14px; color: #ffffff;" placeholder="현재 비밀번호 입력" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                        <label for="change-pwd-new">새 비밀번호</label>
+                        <input type="password" id="change-pwd-new" class="form-input" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 14px; color: #ffffff;" placeholder="새 비밀번호 입력" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;">
+                        <label for="change-pwd-confirm">새 비밀번호 확인</label>
+                        <input type="password" id="change-pwd-confirm" class="form-input" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 14px; color: #ffffff;" placeholder="새 비밀번호 다시 입력" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">비밀번호 변경</button>
+                </form>
             </div>
         </div>
     </div>
