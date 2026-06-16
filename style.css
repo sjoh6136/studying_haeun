@@ -599,7 +599,7 @@ body {
     font-family: inherit;
     font-size: 0.85rem;
     cursor: pointer;
-    width: 130px;
+    width: 145px;
     flex-shrink: 0;
     text-align: left;
     transition: var(--transition-smooth);
