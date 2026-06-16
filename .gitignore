@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+backend/node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment variables & DBs & Credentials
+.env
+.env.local
+backend/.env
+backend/credentials.json
+backend/db_local.json

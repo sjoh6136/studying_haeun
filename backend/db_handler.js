@@ -1,0 +1,407 @@
+const fs = require('fs');
+const path = require('path');
+
+const LOCAL_DB_PATH = path.join(__dirname, 'db_local.json');
+const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+
+// Cache Google sheets API client
+let sheetsClient = null;
+let googleAuth = null;
+const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+const dbMode = process.env.DB_MODE || 'local'; // 'local' or 'sheets'
+
+// Default JSON DB Schema
+const defaultSchema = {
+    users: [
+        // Admin account created by default
+        {
+            id: 1,
+            username: 'admin',
+            email: 'admin@lofi.com',
+            password: '$2b$10$xTAtx2hkqqjzI/uEnrIEf.AgWTJzdTb5ZDi9kaYuLNCNRZwsVIyTu', // bcrypt for 'admin123'
+            role: 'admin',
+            created_at: new Date().toISOString()
+        }
+    ],
+    memos: [],
+    study_sessions: [],
+    connection_logs: []
+};
+
+// --- Local File Database helpers ---
+function readLocalDB() {
+    try {
+        if (!fs.existsSync(LOCAL_DB_PATH)) {
+            fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(defaultSchema, null, 2), 'utf8');
+            return defaultSchema;
+        }
+        const content = fs.readFileSync(LOCAL_DB_PATH, 'utf8');
+        return JSON.parse(content);
+    } catch (err) {
+        console.error('Error reading local JSON database:', err);
+        return defaultSchema;
+    }
+}
+
+function writeLocalDB(data) {
+    try {
+        fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf8');
+    } catch (err) {
+        console.error('Error writing to local JSON database:', err);
+    }
+}
+
+// --- Google Sheets Connection Initialization ---
+function getSheetsService() {
+    if (sheetsClient) return sheetsClient;
+
+    if (!fs.existsSync(CREDENTIALS_PATH)) {
+        console.warn('Google Sheets credentials.json not found. Falling back to local JSON database.');
+        process.env.DB_MODE = 'local';
+        return null;
+    }
+    if (!spreadsheetId) {
+        console.warn('GOOGLE_SPREADSHEET_ID not set in environment. Falling back to local JSON database.');
+        process.env.DB_MODE = 'local';
+        return null;
+    }
+
+    try {
+        const { google } = require('googleapis');
+        googleAuth = new google.auth.GoogleAuth({
+            keyFile: CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets']
+        });
+        sheetsClient = google.sheets({ version: 'v4', auth: googleAuth });
+        return sheetsClient;
+    } catch (err) {
+        console.error('Failed to initialize Google Sheets service. Falling back to local JSON database.', err);
+        process.env.DB_MODE = 'local';
+        return null;
+    }
+}
+
+// Sheet headers definition
+const SHEET_HEADERS = {
+    users: ['id', 'username', 'email', 'password', 'role', 'created_at'],
+    memos: ['id', 'user_id', 'content', 'completed', 'created_at'],
+    study_sessions: ['id', 'user_id', 'duration', 'tree_planted', 'start_time', 'end_time'],
+    connection_logs: ['id', 'user_id', 'login_time', 'ip_address']
+};
+
+// Ensure sheets exist on Google Spreadsheets
+async function ensureSheets() {
+    const service = getSheetsService();
+    if (!service || process.env.DB_MODE === 'local') return;
+
+    try {
+        const spreadsheet = await service.spreadsheets.get({ spreadsheetId });
+        const existingSheets = spreadsheet.data.sheets.map(s => s.properties.title);
+
+        for (const sheetName of Object.keys(SHEET_HEADERS)) {
+            if (!existingSheets.includes(sheetName)) {
+                console.log(`Creating sheet: ${sheetName}`);
+                await service.spreadsheets.batchUpdate({
+                    spreadsheetId,
+                    requestBody: {
+                        requests: [
+                            {
+                                addSheet: {
+                                    properties: { title: sheetName }
+                                }
+                            }
+                        ]
+                    }
+                });
+
+                // Write headers immediately
+                await service.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: `${sheetName}!A1`,
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: {
+                        values: [SHEET_HEADERS[sheetName]]
+                    }
+                });
+            }
+        }
+    } catch (err) {
+        console.error('Error validating or creating sheets in Google Sheets:', err);
+        console.warn('Falling back to local database.');
+        process.env.DB_MODE = 'local';
+    }
+}
+
+// Initialize tables / DB state
+if (dbMode === 'sheets') {
+    ensureSheets().then(async () => {
+        console.log(`Database initialized in Google Sheets mode (Spreadsheet: ${spreadsheetId})`);
+        try {
+            const users = await fetchTable('users');
+            if (users.length === 0) {
+                console.log('No users found in Google Sheets. Seeding default admin user...');
+                const adminPasswordHash = '$2b$10$xTAtx2hkqqjzI/uEnrIEf.AgWTJzdTb5ZDi9kaYuLNCNRZwsVIyTu'; // 'admin123'
+                const defaultAdmin = {
+                    id: 1,
+                    username: 'admin',
+                    email: 'admin@lofi.com',
+                    password: adminPasswordHash,
+                    role: 'admin',
+                    created_at: new Date().toISOString()
+                };
+                await saveTable('users', [defaultAdmin]);
+                console.log('Default admin seeded successfully to Google Sheets.');
+            }
+        } catch (e) {
+            console.error('Error seeding default admin in sheets:', e);
+        }
+    });
+} else {
+    readLocalDB(); // Creates local file if missing
+    console.log(`Database initialized in Local JSON File mode (${LOCAL_DB_PATH})`);
+}
+
+// --- High-Level Database operations (Unified API) ---
+
+async function fetchTable(sheetName) {
+    const activeMode = process.env.DB_MODE || 'local';
+    
+    if (activeMode === 'local') {
+        const db = readLocalDB();
+        return db[sheetName] || [];
+    }
+
+    // Google Sheets mode
+    const service = getSheetsService();
+    if (!service) {
+        const db = readLocalDB();
+        return db[sheetName] || [];
+    }
+
+    try {
+        const response = await service.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${sheetName}!A:Z`
+        });
+        const rows = response.data.values;
+        if (!rows || rows.length <= 1) return [];
+
+        const headers = rows[0];
+        const dataRows = rows.slice(1);
+
+        return dataRows.map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+                let val = row[index] !== undefined ? row[index] : '';
+                // Type conversions where helpful
+                if (header === 'id' || header === 'user_id' || header === 'duration' || header === 'completed') {
+                    if (val !== '') val = Number(val);
+                }
+                obj[header] = val;
+            });
+            return obj;
+        });
+    } catch (err) {
+        console.error(`Error fetching table ${sheetName} from Google Sheets:`, err);
+        // Fallback to local DB on sheets API error
+        const db = readLocalDB();
+        return db[sheetName] || [];
+    }
+}
+
+async function saveTable(sheetName, items) {
+    const activeMode = process.env.DB_MODE || 'local';
+
+    if (activeMode === 'local') {
+        const db = readLocalDB();
+        db[sheetName] = items;
+        writeLocalDB(db);
+        return;
+    }
+
+    // Google Sheets mode
+    const service = getSheetsService();
+    if (!service) {
+        const db = readLocalDB();
+        db[sheetName] = items;
+        writeLocalDB(db);
+        return;
+    }
+
+    try {
+        const headers = SHEET_HEADERS[sheetName];
+        
+        // 1. Clear existing sheet contents (from A2 downwards)
+        await service.spreadsheets.values.clear({
+            spreadsheetId,
+            range: `${sheetName}!A2:Z9999`
+        });
+
+        if (items.length === 0) return;
+
+        // 2. Format items as array of arrays matching headers
+        const values = items.map(item => {
+            return headers.map(header => {
+                let val = item[header];
+                if (val === undefined || val === null) return '';
+                return String(val);
+            });
+        });
+
+        // 3. Write items
+        await service.spreadsheets.values.update({
+            spreadsheetId,
+            range: `${sheetName}!A2`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values }
+        });
+    } catch (err) {
+        console.error(`Error saving table ${sheetName} to Google Sheets:`, err);
+    }
+}
+
+// Generate unique auto-increment integer ID
+async function generateId(sheetName) {
+    const items = await fetchTable(sheetName);
+    if (items.length === 0) return 1;
+    const ids = items.map(i => Number(i.id)).filter(id => !isNaN(id));
+    return ids.length > 0 ? Math.max(...ids) + 1 : 1;
+}
+
+// --- Unified DB Interface Methods ---
+
+const db = {
+    users: {
+        async create({ username, password }) {
+            const items = await fetchTable('users');
+            if (items.some(u => u.username === username)) throw new Error('이미 사용 중인 아이디입니다.');
+
+            const id = await generateId('users');
+            const newUser = {
+                id,
+                username,
+                email: '',
+                password,
+                role: 'user',
+                created_at: new Date().toISOString()
+            };
+
+            items.push(newUser);
+            await saveTable('users', items);
+            return newUser;
+        },
+        async findByEmail(email) {
+            const items = await fetchTable('users');
+            return items.find(u => u.email === email) || null;
+        },
+        async findByUsername(username) {
+            const items = await fetchTable('users');
+            return items.find(u => u.username === username) || null;
+        },
+        async findById(id) {
+            const items = await fetchTable('users');
+            return items.find(u => Number(u.id) === Number(id)) || null;
+        },
+        async listAll() {
+            return await fetchTable('users');
+        },
+        async update(id, { username, email }) {
+            const items = await fetchTable('users');
+            const index = items.findIndex(u => Number(u.id) === Number(id));
+            if (index === -1) throw new Error('사용자를 찾을 수 없습니다.');
+
+            if (email && items.some(u => u.email === email && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 이메일입니다.');
+            if (items.some(u => u.username === username && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 사용자명입니다.');
+
+            items[index].username = username;
+            items[index].email = email || '';
+
+            await saveTable('users', items);
+            return items[index];
+        }
+    },
+    memos: {
+        async listByUserId(userId) {
+            const items = await fetchTable('memos');
+            return items.filter(m => Number(m.user_id) === Number(userId));
+        },
+        async listAll() {
+            return await fetchTable('memos');
+        },
+        async create({ userId, content }) {
+            const items = await fetchTable('memos');
+            const id = await generateId('memos');
+            const newMemo = {
+                id,
+                user_id: Number(userId),
+                content,
+                completed: 0,
+                created_at: new Date().toISOString()
+            };
+            items.push(newMemo);
+            await saveTable('memos', items);
+            return newMemo;
+        },
+        async update(id, userId, { completed }) {
+            const items = await fetchTable('memos');
+            const index = items.findIndex(m => Number(m.id) === Number(id) && Number(m.user_id) === Number(userId));
+            if (index === -1) throw new Error('Memo not found');
+            
+            items[index].completed = completed ? 1 : 0;
+            await saveTable('memos', items);
+            return items[index];
+        },
+        async delete(id, userId) {
+            let items = await fetchTable('memos');
+            const initialLength = items.length;
+            items = items.filter(m => !(Number(m.id) === Number(id) && Number(m.user_id) === Number(userId)));
+            if (items.length === initialLength) throw new Error('Memo not found');
+            await saveTable('memos', items);
+            return true;
+        }
+    },
+    sessions: {
+        async listByUserId(userId) {
+            const items = await fetchTable('study_sessions');
+            return items.filter(s => Number(s.user_id) === Number(userId));
+        },
+        async create({ userId, duration, treePlanted, startTime }) {
+            const items = await fetchTable('study_sessions');
+            const id = await generateId('study_sessions');
+            const newSession = {
+                id,
+                user_id: Number(userId),
+                duration: Number(duration),
+                tree_planted: treePlanted || '',
+                start_time: new Date(startTime).toISOString(),
+                end_time: new Date().toISOString()
+            };
+            items.push(newSession);
+            await saveTable('study_sessions', items);
+            return newSession;
+        },
+        async listAll() {
+            return await fetchTable('study_sessions');
+        }
+    },
+    logs: {
+        async create({ userId, ipAddress }) {
+            const items = await fetchTable('connection_logs');
+            const id = await generateId('connection_logs');
+            const newLog = {
+                id,
+                user_id: Number(userId),
+                login_time: new Date().toISOString(),
+                ip_address: ipAddress || ''
+            };
+            items.push(newLog);
+            await saveTable('connection_logs', items);
+            return newLog;
+        },
+        async listAll() {
+            return await fetchTable('connection_logs');
+        }
+    }
+};
+
+module.exports = db;
