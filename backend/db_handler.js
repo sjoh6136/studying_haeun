@@ -382,6 +382,26 @@ const db = {
         },
         async listAll() {
             return await fetchTable('study_sessions');
+        },
+        async migrateTreeToDuration() {
+            const items = await fetchTable('study_sessions');
+            let migratedCount = 0;
+            items.forEach(s => {
+                const duration = Number(s.duration || 0);
+                const hrs = Math.floor(duration / 60);
+                const mins = duration % 60;
+                const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+                
+                if (!s.tree_planted || !s.tree_planted.includes(':')) {
+                    s.tree_planted = timeStr;
+                    migratedCount++;
+                }
+            });
+            if (migratedCount > 0) {
+                await saveTable('study_sessions', items);
+                console.log(`Migrated ${migratedCount} sessions to HH:MM:SS format.`);
+            }
+            return migratedCount;
         }
     },
     logs: {

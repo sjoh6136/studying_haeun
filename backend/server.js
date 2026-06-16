@@ -256,4 +256,11 @@ app.get('/api/admin/memos', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, async () => {
+    console.log(`Server running on port ${PORT}`);
+    try {
+        await db.sessions.migrateTreeToDuration();
+    } catch (e) {
+        console.error('Database migration failed:', e);
+    }
+});
