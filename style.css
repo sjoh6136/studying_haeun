@@ -932,6 +932,12 @@ body.focus-mode-active .breathing-widget-container {
     transform: scale(1.05);
 }
 
+.icon-button.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.15);
+}
+
 /* Premium Range Slider styling */
 .premium-slider {
     -webkit-appearance: none;
@@ -2276,12 +2282,12 @@ tr:hover td {
 }
 
 .user-detail-card {
-    width: 750px;
-    max-width: 90vw;
-    max-height: 85vh;
+    width: 950px;
+    max-width: 95vw;
+    max-height: 92vh;
     display: flex;
     flex-direction: column;
-    padding: 24px;
+    padding: 28px;
     overflow: hidden;
 }
 

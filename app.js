@@ -131,6 +131,11 @@ const state = {
     // Stretch reminder toggle
     stretchEnabled: true,
 
+    // Notices & Quotes toggle state
+    noticesVisible: localStorage.getItem('study-space-notices-visible') !== 'false',
+    activeNotice: '',
+    activeQuote: '',
+
     // User authentication state
     user: null
 };
@@ -169,14 +174,16 @@ async function apiFetch(path, options = {}) {
 }
 
 function updateAuthUI() {
+    const loginPage = document.getElementById('login-page');
+    const appInterface = document.getElementById('app-interface');
     const userProfile = document.getElementById('user-profile');
     const displayUsername = document.getElementById('display-username');
-    const loginOpenBtn = document.getElementById('btn-login-open');
     const adminViewBtn = document.getElementById('btn-admin-view');
     const adminPane = document.getElementById('tab-admin-dashboard');
 
     if (state.user) {
-        if (loginOpenBtn) loginOpenBtn.style.display = 'none';
+        if (loginPage) loginPage.style.display = 'none';
+        if (appInterface) appInterface.style.display = 'block';
         if (userProfile) userProfile.style.display = 'flex';
         if (displayUsername) displayUsername.textContent = state.user.username;
         
@@ -191,8 +198,9 @@ function updateAuthUI() {
             }
         }
     } else {
+        if (loginPage) loginPage.style.display = 'flex';
+        if (appInterface) appInterface.style.display = 'none';
         if (userProfile) userProfile.style.display = 'none';
-        if (loginOpenBtn) loginOpenBtn.style.display = 'inline-block';
         if (adminViewBtn) adminViewBtn.style.display = 'none';
         
         if (adminPane && adminPane.classList.contains('active')) {
@@ -216,88 +224,67 @@ function initAuth() {
         }
     }
 
-    const loginOpenBtn = document.getElementById('btn-login-open');
-    const loginCloseBtn = document.getElementById('btn-close-login');
-    const loginOverlay = document.getElementById('login-overlay');
-    const loginForm = document.getElementById('form-login');
+    const mainLoginForm = document.getElementById('main-form-login');
+    const mainToggleAuthBtn = document.getElementById('main-btn-toggle-auth');
     const logoutBtn = document.getElementById('btn-logout');
+    
+    let mainAuthMode = 'login';
 
-    let authMode = 'login';
-
-    const setAuthMode = (mode) => {
-        authMode = mode;
-        const title = document.getElementById('login-title');
-        const submitBtn = document.getElementById('btn-login-submit');
-        const toggleText = document.getElementById('login-toggle-text');
+    const setMainAuthMode = (mode) => {
+        mainAuthMode = mode;
+        const title = document.getElementById('main-login-title');
+        const submitBtn = document.getElementById('main-btn-login-submit');
+        const toggleText = document.querySelector('#login-page .login-footer p');
 
         if (mode === 'register') {
             if (title) title.textContent = '회원가입';
             if (submitBtn) submitBtn.textContent = '회원가입';
             if (toggleText) {
-                toggleText.innerHTML = `이미 계정이 있으신가요? <a href="#" id="btn-toggle-auth">로그인</a>`;
+                toggleText.innerHTML = `이미 계정이 있으신가요? <a href="#" id="main-btn-toggle-auth" style="color: var(--accent); text-decoration: underline;">로그인</a>`;
             }
         } else {
             if (title) title.textContent = '로그인';
             if (submitBtn) submitBtn.textContent = '로그인';
             if (toggleText) {
-                toggleText.innerHTML = `계정이 없으신가요? <a href="#" id="btn-toggle-auth">회원가입</a>`;
+                toggleText.innerHTML = `계정이 없으신가요? <a href="#" id="main-btn-toggle-auth" style="color: var(--accent); text-decoration: underline;">회원가입</a>`;
             }
         }
 
-        const newToggleBtn = document.getElementById('btn-toggle-auth');
+        const newToggleBtn = document.getElementById('main-btn-toggle-auth');
         if (newToggleBtn) {
             newToggleBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                setAuthMode(authMode === 'login' ? 'register' : 'login');
+                setMainAuthMode(mainAuthMode === 'login' ? 'register' : 'login');
             });
         }
     };
 
-    if (loginOpenBtn) {
-        loginOpenBtn.addEventListener('click', () => {
-            if (loginOverlay) loginOverlay.classList.add('active');
-            setAuthMode('login');
-        });
-    }
-
-    if (loginCloseBtn) {
-        loginCloseBtn.addEventListener('click', () => {
-            if (loginOverlay) loginOverlay.classList.remove('active');
-        });
-    }
-
-    if (loginOverlay) {
-        loginOverlay.addEventListener('click', (e) => {
-            if (e.target === loginOverlay) loginOverlay.classList.remove('active');
-        });
-    }
-
-    const toggleAuthBtn = document.getElementById('btn-toggle-auth');
-    if (toggleAuthBtn) {
-        toggleAuthBtn.addEventListener('click', (e) => {
+    if (mainToggleAuthBtn) {
+        mainToggleAuthBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            setAuthMode(authMode === 'login' ? 'register' : 'login');
+            setMainAuthMode(mainAuthMode === 'login' ? 'register' : 'login');
         });
     }
 
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
+    if (mainLoginForm) {
+        mainLoginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const usernameInput = document.getElementById('login-username');
+            const usernameInput = document.getElementById('main-login-username');
             const username = usernameInput ? usernameInput.value.trim() : '';
-            const password = document.getElementById('login-password').value.trim();
+            const passwordInput = document.getElementById('main-login-password');
+            const password = passwordInput ? passwordInput.value.trim() : '';
 
             try {
-                if (authMode === 'register') {
+                if (mainAuthMode === 'register') {
                     await apiFetch('/auth/register', {
                         method: 'POST',
                         body: JSON.stringify({ username, password })
                     });
                     alert('회원가입이 완료되었습니다. 로그인 해주세요.');
-                    setAuthMode('login');
+                    setMainAuthMode('login');
                     if (usernameInput) usernameInput.value = '';
-                    document.getElementById('login-password').value = '';
+                    if (passwordInput) passwordInput.value = '';
                 } else {
                     const data = await apiFetch('/auth/login', {
                         method: 'POST',
@@ -307,9 +294,7 @@ function initAuth() {
                     localStorage.setItem('lofi-study-user', JSON.stringify(data.user));
                     state.user = data.user;
                     
-                    if (loginOverlay) loginOverlay.classList.remove('active');
-                    loginForm.reset();
-                    
+                    mainLoginForm.reset();
                     updateAuthUI();
                     await initMemo();
                     await initStats();
@@ -317,6 +302,19 @@ function initAuth() {
                 }
             } catch (err) {
                 alert(err.message || '인증 처리에 실패했습니다.');
+            }
+        });
+    }
+
+    // Support enter key submit
+    const pwdInput = document.getElementById('main-login-password');
+    if (pwdInput) {
+        pwdInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (mainLoginForm) {
+                    mainLoginForm.dispatchEvent(new Event('submit'));
+                }
             }
         });
     }
@@ -358,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     fetchActiveNotices();
     initNoticeBanner();
+    initNoticesToggle();
     
     updateGrowingPlantUI();
     updateAuthUI();
@@ -729,33 +728,66 @@ function showAdminDayDetails(date, sessions, memos) {
 }
 
 // --- Notice & Daily Motivation Helper Functions ---
-async function fetchActiveNotices() {
-    try {
-        const data = await apiFetch('/notices');
-        
-        // Render Notice Banner
-        const banner = document.getElementById('notice-banner');
-        const bannerText = document.getElementById('notice-banner-text');
+function updateNoticesVisibility() {
+    const banner = document.getElementById('notice-banner');
+    const bannerText = document.getElementById('notice-banner-text');
+    const quoteContainer = document.getElementById('daily-quote-container');
+    const quoteText = document.getElementById('daily-quote-text');
+    
+    if (state.noticesVisible) {
         if (banner && bannerText) {
-            if (data.notice && data.notice.trim() !== '') {
-                bannerText.textContent = data.notice;
+            if (state.activeNotice && state.activeNotice.trim() !== '') {
+                bannerText.textContent = state.activeNotice;
                 banner.style.display = 'flex';
             } else {
                 banner.style.display = 'none';
             }
         }
-        
-        // Render Daily Quote
-        const quoteContainer = document.getElementById('daily-quote-container');
-        const quoteText = document.getElementById('daily-quote-text');
         if (quoteContainer && quoteText) {
-            if (data.quote && data.quote.trim() !== '') {
-                quoteText.textContent = `"${data.quote}"`;
+            if (state.activeQuote && state.activeQuote.trim() !== '') {
+                quoteText.textContent = `"${state.activeQuote}"`;
                 quoteContainer.style.display = 'block';
             } else {
                 quoteContainer.style.display = 'none';
             }
         }
+    } else {
+        if (banner) banner.style.display = 'none';
+        if (quoteContainer) quoteContainer.style.display = 'none';
+    }
+}
+
+function initNoticesToggle() {
+    const btn = document.getElementById('btn-toggle-notices');
+    if (!btn) return;
+    
+    // Set initial button active class based on state.noticesVisible
+    if (state.noticesVisible) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+    }
+    
+    btn.addEventListener('click', () => {
+        state.noticesVisible = !state.noticesVisible;
+        localStorage.setItem('study-space-notices-visible', state.noticesVisible);
+        
+        if (state.noticesVisible) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+        
+        updateNoticesVisibility();
+    });
+}
+
+async function fetchActiveNotices() {
+    try {
+        const data = await apiFetch('/notices');
+        state.activeNotice = data.notice || '';
+        state.activeQuote = data.quote || '';
+        updateNoticesVisibility();
     } catch (err) {
         console.error('Failed to load notices:', err);
     }
@@ -857,6 +889,8 @@ function initTabs() {
 function initClock() {
     const timeEl = document.getElementById('clock-time');
     const dateEl = document.getElementById('clock-date');
+    const loginTimeEl = document.getElementById('login-clock-time');
+    const loginDateEl = document.getElementById('login-clock-date');
 
     const formatNumber = num => String(num).padStart(2, '0');
     
@@ -867,7 +901,9 @@ function initClock() {
         const hours = formatNumber(now.getHours());
         const minutes = formatNumber(now.getMinutes());
         const seconds = formatNumber(now.getSeconds());
-        timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+        
+        if (timeEl) timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+        if (loginTimeEl) loginTimeEl.textContent = `${hours}:${minutes}:${seconds}`;
 
         // Date YYYY년 MM월 DD일 Day
         const year = now.getFullYear();
@@ -877,7 +913,9 @@ function initClock() {
         const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
         const dayName = days[now.getDay()];
         
-        dateEl.textContent = `${year}년 ${month}월 ${date}일 ${dayName}`;
+        const dateStr = `${year}년 ${month}월 ${date}일 ${dayName}`;
+        if (dateEl) dateEl.textContent = dateStr;
+        if (loginDateEl) loginDateEl.textContent = dateStr;
     };
 
     updateTime();
