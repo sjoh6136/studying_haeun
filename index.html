@@ -87,6 +87,9 @@
                 <button id="btn-focus-mode" class="icon-button" title="집중 모드 (화면 보호기)">
                     <span class="material-symbols-rounded">fullscreen</span>
                 </button>
+                <button id="btn-theme-toggle" class="icon-button" title="낮/밤 테마 전환">
+                    <span class="material-symbols-rounded" id="theme-toggle-icon">light_mode</span>
+                </button>
                 <button id="btn-settings" class="icon-button" title="설정">
                     <span class="material-symbols-rounded">settings</span>
                 </button>
@@ -270,6 +273,24 @@
                                 <button class="sound-toggle-btn" title="숲속 소리 켜기/끄기">
                                     <span class="material-symbols-rounded">forest</span>
                                     <span class="sound-label">새와 바람</span>
+                                </button>
+                                <input type="range" min="0" max="100" value="0" class="premium-slider sound-volume-slider">
+                            </div>
+
+                            <!-- Channel: Keyboard -->
+                            <div class="mixer-channel" data-sound="keyboard">
+                                <button class="sound-toggle-btn" title="키보드 소리 켜기/끄기">
+                                    <span class="material-symbols-rounded">keyboard</span>
+                                    <span class="sound-label">키보드 적축</span>
+                                </button>
+                                <input type="range" min="0" max="100" value="0" class="premium-slider sound-volume-slider">
+                            </div>
+
+                            <!-- Channel: Waves -->
+                            <div class="mixer-channel" data-sound="waves">
+                                <button class="sound-toggle-btn" title="파도 소리 켜기/끄기">
+                                    <span class="material-symbols-rounded">tsunami</span>
+                                    <span class="sound-label">바다 파도</span>
                                 </button>
                                 <input type="range" min="0" max="100" value="0" class="premium-slider sound-volume-slider">
                             </div>

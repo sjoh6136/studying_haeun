@@ -217,6 +217,20 @@ async function fetchTable(sheetName) {
     }
 }
 
+class TaskQueue {
+    constructor() {
+        this.queue = Promise.resolve();
+    }
+    add(fn) {
+        return new Promise((resolve, reject) => {
+            this.queue = this.queue.then(() => {
+                return fn().then(resolve).catch(reject);
+            });
+        });
+    }
+}
+const dbWriteQueue = new TaskQueue();
+
 async function saveTable(sheetName, items) {
     const activeMode = process.env.DB_MODE || 'local';
 
@@ -268,6 +282,51 @@ async function saveTable(sheetName, items) {
     }
 }
 
+async function appendRow(sheetName, item) {
+    const activeMode = process.env.DB_MODE || 'local';
+
+    if (activeMode === 'local') {
+        const db = readLocalDB();
+        if (!db[sheetName]) db[sheetName] = [];
+        db[sheetName].push(item);
+        writeLocalDB(db);
+        return;
+    }
+
+    // Google Sheets mode
+    const service = getSheetsService();
+    if (!service) {
+        const db = readLocalDB();
+        if (!db[sheetName]) db[sheetName] = [];
+        db[sheetName].push(item);
+        writeLocalDB(db);
+        return;
+    }
+
+    try {
+        const headers = SHEET_HEADERS[sheetName];
+        const values = [headers.map(header => {
+            let val = item[header];
+            if (val === undefined || val === null) return '';
+            return String(val);
+        })];
+
+        await service.spreadsheets.values.append({
+            spreadsheetId,
+            range: `${sheetName}!A2`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values }
+        });
+    } catch (err) {
+        console.error(`Error appending row to table ${sheetName} in Google Sheets:`, err);
+        // Fallback to local
+        const db = readLocalDB();
+        if (!db[sheetName]) db[sheetName] = [];
+        db[sheetName].push(item);
+        writeLocalDB(db);
+    }
+}
+
 // Generate unique auto-increment integer ID
 async function generateId(sheetName) {
     const items = await fetchTable(sheetName);
@@ -281,21 +340,23 @@ async function generateId(sheetName) {
 const db = {
     users: {
         async create({ username, password }) {
-            const items = await fetchTable('users');
-            if (items.some(u => u.username === username)) throw new Error('이미 사용 중인 아이디입니다.');
+            return dbWriteQueue.add(async () => {
+                const items = await fetchTable('users');
+                if (items.some(u => u.username === username)) throw new Error('이미 사용 중인 아이디입니다.');
 
-            const id = await generateId('users');
-            const newUser = {
-                id,
-                username,
-                password,
-                role: 'user',
-                created_at: new Date().toISOString()
-            };
+                const id = await generateId('users');
+                const newUser = {
+                    id,
+                    username,
+                    password,
+                    role: 'user',
+                    created_at: new Date().toISOString()
+                };
 
-            items.push(newUser);
-            await saveTable('users', items);
-            return newUser;
+                items.push(newUser);
+                await saveTable('users', items);
+                return newUser;
+            });
         },
 
         async findByUsername(username) {
@@ -310,17 +371,19 @@ const db = {
             return await fetchTable('users');
         },
         async update(id, { username, password }) {
-            const items = await fetchTable('users');
-            const index = items.findIndex(u => Number(u.id) === Number(id));
-            if (index === -1) throw new Error('사용자를 찾을 수 없습니다.');
+            return dbWriteQueue.add(async () => {
+                const items = await fetchTable('users');
+                const index = items.findIndex(u => Number(u.id) === Number(id));
+                if (index === -1) throw new Error('사용자를 찾을 수 없습니다.');
 
-            if (username && items.some(u => u.username === username && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 사용자명입니다.');
+                if (username && items.some(u => u.username === username && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 사용자명입니다.');
 
-            if (username !== undefined) items[index].username = username;
-            if (password !== undefined) items[index].password = password;
+                if (username !== undefined) items[index].username = username;
+                if (password !== undefined) items[index].password = password;
 
-            await saveTable('users', items);
-            return items[index];
+                await saveTable('users', items);
+                return items[index];
+            });
         }
     },
     memos: {
@@ -332,35 +395,41 @@ const db = {
             return await fetchTable('memos');
         },
         async create({ userId, content }) {
-            const items = await fetchTable('memos');
-            const id = await generateId('memos');
-            const newMemo = {
-                id,
-                user_id: Number(userId),
-                content,
-                completed: 0,
-                created_at: new Date().toISOString()
-            };
-            items.push(newMemo);
-            await saveTable('memos', items);
-            return newMemo;
+            return dbWriteQueue.add(async () => {
+                const items = await fetchTable('memos');
+                const id = await generateId('memos');
+                const newMemo = {
+                    id,
+                    user_id: Number(userId),
+                    content,
+                    completed: 0,
+                    created_at: new Date().toISOString()
+                };
+                items.push(newMemo);
+                await saveTable('memos', items);
+                return newMemo;
+            });
         },
         async update(id, userId, { completed }) {
-            const items = await fetchTable('memos');
-            const index = items.findIndex(m => Number(m.id) === Number(id) && Number(m.user_id) === Number(userId));
-            if (index === -1) throw new Error('Memo not found');
-            
-            items[index].completed = completed ? 1 : 0;
-            await saveTable('memos', items);
-            return items[index];
+            return dbWriteQueue.add(async () => {
+                const items = await fetchTable('memos');
+                const index = items.findIndex(m => Number(m.id) === Number(id) && Number(m.user_id) === Number(userId));
+                if (index === -1) throw new Error('Memo not found');
+                
+                items[index].completed = completed ? 1 : 0;
+                await saveTable('memos', items);
+                return items[index];
+            });
         },
         async delete(id, userId) {
-            let items = await fetchTable('memos');
-            const initialLength = items.length;
-            items = items.filter(m => !(Number(m.id) === Number(id) && Number(m.user_id) === Number(userId)));
-            if (items.length === initialLength) throw new Error('Memo not found');
-            await saveTable('memos', items);
-            return true;
+            return dbWriteQueue.add(async () => {
+                let items = await fetchTable('memos');
+                const initialLength = items.length;
+                items = items.filter(m => !(Number(m.id) === Number(id) && Number(m.user_id) === Number(userId)));
+                if (items.length === initialLength) throw new Error('Memo not found');
+                await saveTable('memos', items);
+                return true;
+            });
         }
     },
     sessions: {
@@ -369,57 +438,59 @@ const db = {
             return items.filter(s => Number(s.user_id) === Number(userId));
         },
         async create({ userId, duration, treePlanted, startTime }) {
-            const items = await fetchTable('study_sessions');
-            const id = await generateId('study_sessions');
-            const newSession = {
-                id,
-                user_id: Number(userId),
-                duration: Number(duration),
-                tree_planted: treePlanted || '',
-                start_time: new Date(startTime).toISOString(),
-                end_time: new Date().toISOString()
-            };
-            items.push(newSession);
-            await saveTable('study_sessions', items);
-            return newSession;
+            return dbWriteQueue.add(async () => {
+                const id = await generateId('study_sessions');
+                const newSession = {
+                    id,
+                    user_id: Number(userId),
+                    duration: Number(duration),
+                    tree_planted: treePlanted || '',
+                    start_time: new Date(startTime).toISOString(),
+                    end_time: new Date().toISOString()
+                };
+                await appendRow('study_sessions', newSession);
+                return newSession;
+            });
         },
         async listAll() {
             return await fetchTable('study_sessions');
         },
         async migrateTreeToDuration() {
-            const items = await fetchTable('study_sessions');
-            let migratedCount = 0;
-            items.forEach(s => {
-                const duration = Number(s.duration || 0);
-                const hrs = Math.floor(duration / 60);
-                const mins = duration % 60;
-                const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
-                
-                if (!s.tree_planted || !s.tree_planted.includes(':')) {
-                    s.tree_planted = timeStr;
-                    migratedCount++;
+            return dbWriteQueue.add(async () => {
+                const items = await fetchTable('study_sessions');
+                let migratedCount = 0;
+                items.forEach(s => {
+                    const duration = Number(s.duration || 0);
+                    const hrs = Math.floor(duration / 60);
+                    const mins = duration % 60;
+                    const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+                    
+                    if (!s.tree_planted || !s.tree_planted.includes(':')) {
+                        s.tree_planted = timeStr;
+                        migratedCount++;
+                    }
+                });
+                if (migratedCount > 0) {
+                    await saveTable('study_sessions', items);
+                    console.log(`Migrated ${migratedCount} sessions to HH:MM:SS format.`);
                 }
+                return migratedCount;
             });
-            if (migratedCount > 0) {
-                await saveTable('study_sessions', items);
-                console.log(`Migrated ${migratedCount} sessions to HH:MM:SS format.`);
-            }
-            return migratedCount;
         }
     },
     logs: {
         async create({ userId, ipAddress }) {
-            const items = await fetchTable('connection_logs');
-            const id = await generateId('connection_logs');
-            const newLog = {
-                id,
-                user_id: Number(userId),
-                login_time: new Date().toISOString(),
-                ip_address: ipAddress || ''
-            };
-            items.push(newLog);
-            await saveTable('connection_logs', items);
-            return newLog;
+            return dbWriteQueue.add(async () => {
+                const id = await generateId('connection_logs');
+                const newLog = {
+                    id,
+                    user_id: Number(userId),
+                    login_time: new Date().toISOString(),
+                    ip_address: ipAddress || ''
+                };
+                await appendRow('connection_logs', newLog);
+                return newLog;
+            });
         },
         async listAll() {
             return await fetchTable('connection_logs');
@@ -430,17 +501,19 @@ const db = {
             return await fetchTable('notices');
         },
         async create({ content, type }) {
-            const items = await fetchTable('notices');
-            const id = await generateId('notices');
-            const newNotice = {
-                id,
-                content,
-                type,
-                created_at: new Date().toISOString()
-            };
-            items.push(newNotice);
-            await saveTable('notices', items);
-            return newNotice;
+            return dbWriteQueue.add(async () => {
+                const items = await fetchTable('notices');
+                const id = await generateId('notices');
+                const newNotice = {
+                    id,
+                    content,
+                    type,
+                    created_at: new Date().toISOString()
+                };
+                items.push(newNotice);
+                await saveTable('notices', items);
+                return newNotice;
+            });
         }
     }
 };

@@ -171,6 +171,7 @@ body {
     display: flex;
     gap: 12px;
     justify-self: end;
+    align-items: center;
 }
 
 /* Glassmorphism Cards */
@@ -588,7 +589,7 @@ body {
 .mixer-channels {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     flex-grow: 1;
     justify-content: space-between;
 }
@@ -598,7 +599,7 @@ body {
     align-items: center;
     gap: 8px;
     background: rgba(255,255,255,0.01);
-    padding: 8px 12px;
+    padding: 7px 12px;
     border-radius: var(--radius-sm);
     border: 1px solid rgba(255,255,255,0.02);
 }
@@ -613,7 +614,7 @@ body {
     font-family: inherit;
     font-size: 0.85rem;
     cursor: pointer;
-    width: 125px;
+    width: 130px;
     flex-shrink: 0;
     text-align: left;
     transition: var(--transition-smooth);
@@ -1726,11 +1727,28 @@ input[type="text"], input[type="range"], textarea {
 .user-profile-nav {
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 8px;
+    background: rgba(15, 18, 30, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 19px;
+    border: 1px solid var(--card-border);
+}
+
+.user-profile-nav .icon-button {
+    background: transparent;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    width: 30px;
+    height: 30px;
+}
+
+.user-profile-nav .icon-button:hover {
+    transform: scale(1.1);
+    color: var(--accent);
 }
 
 .username-text {
@@ -2387,6 +2405,131 @@ tr:hover td {
     color: #ffffff;
 }
 
+/* --- DAY MODE STYLING --- */
+body.theme-day {
+    --bg-dark: #f0f2f8;
+    --card-bg: rgba(255, 255, 255, 0.55);
+    --card-border: rgba(0, 0, 0, 0.08);
+    --text-primary: #1e2230;
+    --text-secondary: #606677;
+    
+    --accent: #e07a5f;
+    --accent-glow: rgba(224, 122, 95, 0.5);
+    --accent-rgb: 224, 122, 95;
+    --gradient-accent: linear-gradient(135deg, #e07a5f, #f4a261);
+}
+
+body.theme-day .bg-image {
+    filter: brightness(1.2) contrast(0.95) saturate(1.1);
+}
+
+body.theme-day .bg-overlay {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+body.theme-day .clock-display {
+    color: #1e2230;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.05),
+                 0 0 20px rgba(var(--accent-rgb), 0.15);
+}
+
+body.theme-day .timer-text {
+    color: #1e2230;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+body.theme-day .progress-ring__circle-bg {
+    stroke: rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-day .timer-modes {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+body.theme-day .timer-mode-btn.active {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--accent);
+}
+
+body.theme-day .tab-switcher {
+    background: rgba(255, 255, 255, 0.6) !important;
+}
+
+body.theme-day .tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.03);
+}
+
+body.theme-day input[type="text"], 
+body.theme-day input[type="password"],
+body.theme-day textarea {
+    background: rgba(255, 255, 255, 0.85) !important;
+    color: #1e2230 !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-day input[type="text"]::placeholder,
+body.theme-day input[type="password"]::placeholder,
+body.theme-day textarea::placeholder {
+    color: #8a90a0;
+}
+
+body.theme-day .icon-button {
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text-secondary);
+}
+
+body.theme-day .icon-button:hover {
+    color: var(--accent);
+    background: rgba(255, 255, 255, 0.9);
+}
+
+body.theme-day .icon-button.active {
+    background: rgba(var(--accent-rgb), 0.15);
+}
+
+body.theme-day .user-profile-nav {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+body.theme-day .user-profile-nav .icon-button {
+    background: transparent;
+}
+
+body.theme-day .custom-url-section input,
+body.theme-day .todo-input-group input {
+    background: rgba(255, 255, 255, 0.85) !important;
+    color: #1e2230 !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-day .btn-secondary {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.theme-day .btn-secondary:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure calendar styles read correctly in light theme */
+body.theme-day .calendar-day {
+    color: #1e2230;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+body.theme-day .calendar-day.other-month {
+    color: #8a90a0;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+body.theme-day .calendar-day.has-study {
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: rgba(var(--accent-rgb), 0.4);
+}
+
 
 
 </style>
@@ -2510,12 +2653,13 @@ const state = {
     sessionHistory: [],   // list of session records: { time: String, duration: Number, tree: String/null }
     plantedTrees: [],     // array of grown tree emojis
 
-    // Audio Files (Local mp3 assets)
     sounds: {
         rain: createAutocorrectAudio('./assets/sounds/rain.mp3'),
         fireplace: createAutocorrectAudio('./assets/sounds/fireplace.mp3'),
         cafe: createAutocorrectAudio('./assets/sounds/cafe.mp3'),
-        forest: createAutocorrectAudio('./assets/sounds/forest.mp3')
+        forest: createAutocorrectAudio('./assets/sounds/forest.mp3'),
+        keyboard: createAutocorrectAudio('./assets/sounds/Keyboard Typing.mp3'),
+        waves: createAutocorrectAudio('./assets/sounds/Beach Wave.mp3')
     },
 
     // Local Music Loop Assets
@@ -2620,6 +2764,32 @@ function updateAuthUI() {
             document.getElementById('tab-focus-space').classList.add('active');
             document.getElementById('tab-btn-focus').classList.add('active');
         }
+    }
+}
+
+function initTheme() {
+    const themeToggleBtn = document.getElementById('btn-theme-toggle');
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+    const setTheme = (theme) => {
+        if (theme === 'day') {
+            document.body.classList.add('theme-day');
+            if (themeToggleIcon) themeToggleIcon.textContent = 'dark_mode';
+        } else {
+            document.body.classList.remove('theme-day');
+            if (themeToggleIcon) themeToggleIcon.textContent = 'light_mode';
+        }
+        localStorage.setItem('lofi-study-theme', theme);
+    };
+
+    const savedTheme = localStorage.getItem('lofi-study-theme') || 'night';
+    setTheme(savedTheme);
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.body.classList.contains('theme-day') ? 'night' : 'day';
+            setTheme(currentTheme);
+        });
     }
 }
 
@@ -2750,6 +2920,7 @@ function initAuth() {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initAuth();
     initClock();
     initStats();
@@ -4838,6 +5009,9 @@ function initUserSettings() {
                 <button id="btn-focus-mode" class="icon-button" title="집중 모드 (화면 보호기)">
                     <span class="material-symbols-rounded">fullscreen</span>
                 </button>
+                <button id="btn-theme-toggle" class="icon-button" title="낮/밤 테마 전환">
+                    <span class="material-symbols-rounded" id="theme-toggle-icon">light_mode</span>
+                </button>
                 <button id="btn-settings" class="icon-button" title="설정">
                     <span class="material-symbols-rounded">settings</span>
                 </button>
@@ -5021,6 +5195,24 @@ function initUserSettings() {
                                 <button class="sound-toggle-btn" title="숲속 소리 켜기/끄기">
                                     <span class="material-symbols-rounded">forest</span>
                                     <span class="sound-label">새와 바람</span>
+                                </button>
+                                <input type="range" min="0" max="100" value="0" class="premium-slider sound-volume-slider">
+                            </div>
+
+                            <!-- Channel: Keyboard -->
+                            <div class="mixer-channel" data-sound="keyboard">
+                                <button class="sound-toggle-btn" title="키보드 소리 켜기/끄기">
+                                    <span class="material-symbols-rounded">keyboard</span>
+                                    <span class="sound-label">키보드 적축</span>
+                                </button>
+                                <input type="range" min="0" max="100" value="0" class="premium-slider sound-volume-slider">
+                            </div>
+
+                            <!-- Channel: Waves -->
+                            <div class="mixer-channel" data-sound="waves">
+                                <button class="sound-toggle-btn" title="파도 소리 켜기/끄기">
+                                    <span class="material-symbols-rounded">tsunami</span>
+                                    <span class="sound-label">바다 파도</span>
                                 </button>
                                 <input type="range" min="0" max="100" value="0" class="premium-slider sound-volume-slider">
                             </div>

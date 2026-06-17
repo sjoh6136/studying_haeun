@@ -117,12 +117,13 @@ const state = {
     sessionHistory: [],   // list of session records: { time: String, duration: Number, tree: String/null }
     plantedTrees: [],     // array of grown tree emojis
 
-    // Audio Files (Local mp3 assets)
     sounds: {
         rain: createAutocorrectAudio('./assets/sounds/rain.mp3'),
         fireplace: createAutocorrectAudio('./assets/sounds/fireplace.mp3'),
         cafe: createAutocorrectAudio('./assets/sounds/cafe.mp3'),
-        forest: createAutocorrectAudio('./assets/sounds/forest.mp3')
+        forest: createAutocorrectAudio('./assets/sounds/forest.mp3'),
+        keyboard: createAutocorrectAudio('./assets/sounds/Keyboard Typing.mp3'),
+        waves: createAutocorrectAudio('./assets/sounds/Beach Wave.mp3')
     },
 
     // Local Music Loop Assets
@@ -227,6 +228,32 @@ function updateAuthUI() {
             document.getElementById('tab-focus-space').classList.add('active');
             document.getElementById('tab-btn-focus').classList.add('active');
         }
+    }
+}
+
+function initTheme() {
+    const themeToggleBtn = document.getElementById('btn-theme-toggle');
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+    const setTheme = (theme) => {
+        if (theme === 'day') {
+            document.body.classList.add('theme-day');
+            if (themeToggleIcon) themeToggleIcon.textContent = 'dark_mode';
+        } else {
+            document.body.classList.remove('theme-day');
+            if (themeToggleIcon) themeToggleIcon.textContent = 'light_mode';
+        }
+        localStorage.setItem('lofi-study-theme', theme);
+    };
+
+    const savedTheme = localStorage.getItem('lofi-study-theme') || 'night';
+    setTheme(savedTheme);
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.body.classList.contains('theme-day') ? 'night' : 'day';
+            setTheme(currentTheme);
+        });
     }
 }
 
@@ -357,6 +384,7 @@ function initAuth() {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initAuth();
     initClock();
     initStats();
