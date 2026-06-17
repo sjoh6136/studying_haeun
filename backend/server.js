@@ -53,8 +53,29 @@ app.post('/api/auth/login', async (req, res) => {
         const { username, password } = req.body;
         
         const user = await db.users.findByUsername(username);
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid username or password' });
+        }
         
-        if (!user || password !== user.password) {
+        let isMatch = password === user.password;
+        
+        // Fallback for existing legacy bcrypt hashes
+        if (!isMatch && user.password && user.password.startsWith('$2b$')) {
+            try {
+                const legacyBcrypt = require('bcryptjs');
+                isMatch = await legacyBcrypt.compare(password, user.password);
+                
+                // Automatically migrate to plain text on successful login
+                if (isMatch) {
+                    await db.users.update(user.id, { password: password });
+                    console.log(`Automatically updated legacy password to plain text for user: ${username}`);
+                }
+            } catch (bcryptErr) {
+                console.error("Bcrypt fallback comparison failed:", bcryptErr);
+            }
+        }
+        
+        if (!isMatch) {
             return res.status(401).json({ message: 'Invalid username or password' });
         }
         
@@ -78,7 +99,18 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
         }
         
-        const isMatch = currentPassword === user.password;
+        let isMatch = currentPassword === user.password;
+        
+        // Fallback for existing legacy bcrypt hashes
+        if (!isMatch && user.password && user.password.startsWith('$2b$')) {
+            try {
+                const legacyBcrypt = require('bcryptjs');
+                isMatch = await legacyBcrypt.compare(currentPassword, user.password);
+            } catch (bcryptErr) {
+                console.error("Bcrypt fallback comparison in change-password failed:", bcryptErr);
+            }
+        }
+        
         if (!isMatch) {
             return res.status(400).json({ message: '현재 비밀번호가 일치하지 않습니다.' });
         }
