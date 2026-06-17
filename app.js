@@ -1,8 +1,29 @@
 // --- App State & Audio Management ---
 
-const API_BASE_URL = window.location.hostname
-    ? `${window.location.protocol}//${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:5000/api`
-    : 'http://127.0.0.1:5000/api';
+const getApiBaseUrl = () => {
+    const hostname = window.location.hostname;
+    // Check if local development
+    const isLocal = !hostname || 
+                    hostname === 'localhost' || 
+                    hostname === '127.0.0.1' || 
+                    hostname.startsWith('192.168.') || 
+                    hostname.startsWith('10.') || 
+                    hostname.startsWith('172.');
+                    
+    if (isLocal) {
+        if (window.location.port === '5000') {
+            return '/api';
+        }
+        const host = hostname || '127.0.0.1';
+        const protocol = window.location.protocol === 'file:' ? 'http:' : window.location.protocol;
+        return `${protocol}//${host === 'localhost' ? '127.0.0.1' : host}:5000/api`;
+    } else {
+        // In production deployment (e.g. Render, AWS, Heroku), relative API path is used
+        return '/api';
+    }
+};
+
+const API_BASE_URL = getApiBaseUrl();
 console.log("Using API Base URL:", API_BASE_URL);
 
 const TREE_EMOJIS = ['🌰', '🌱', '🌿', '🌲', '🌳', '🌸'];
