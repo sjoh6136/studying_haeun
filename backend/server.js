@@ -60,7 +60,7 @@ app.post('/api/auth/login', async (req, res) => {
         let isMatch = password === user.password;
         
         // Fallback for existing legacy bcrypt hashes
-        if (!isMatch && user.password && user.password.startsWith('$2b$')) {
+        if (!isMatch && user.password && user.password.startsWith('$2')) {
             try {
                 const legacyBcrypt = require('bcryptjs');
                 isMatch = await legacyBcrypt.compare(password, user.password);
