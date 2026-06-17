@@ -1,8 +1,8 @@
 // --- App State & Audio Management ---
 
-const API_BASE_URL = (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-    ? `${window.location.protocol}//${window.location.hostname}:5000/api`
-    : 'http://localhost:5000/api';
+const API_BASE_URL = window.location.hostname
+    ? `${window.location.protocol}//${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:5000/api`
+    : 'http://127.0.0.1:5000/api';
 console.log("Using API Base URL:", API_BASE_URL);
 
 const TREE_EMOJIS = ['🌰', '🌱', '🌿', '🌲', '🌳', '🌸'];
