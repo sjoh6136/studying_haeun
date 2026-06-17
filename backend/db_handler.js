@@ -24,7 +24,8 @@ const defaultSchema = {
     ],
     memos: [],
     study_sessions: [],
-    connection_logs: []
+    connection_logs: [],
+    notices: []
 };
 
 // --- Local File Database helpers ---
@@ -85,7 +86,8 @@ const SHEET_HEADERS = {
     users: ['id', 'username', 'password', 'role', 'created_at'],
     memos: ['id', 'user_id', 'content', 'completed', 'created_at'],
     study_sessions: ['id', 'user_id', 'duration', 'tree_planted', 'start_time', 'end_time'],
-    connection_logs: ['id', 'user_id', 'login_time', 'ip_address']
+    connection_logs: ['id', 'user_id', 'login_time', 'ip_address'],
+    notices: ['id', 'content', 'type', 'created_at']
 };
 
 // Ensure sheets exist on Google Spreadsheets
@@ -413,6 +415,24 @@ const db = {
         },
         async listAll() {
             return await fetchTable('connection_logs');
+        }
+    },
+    notices: {
+        async listAll() {
+            return await fetchTable('notices');
+        },
+        async create({ content, type }) {
+            const items = await fetchTable('notices');
+            const id = await generateId('notices');
+            const newNotice = {
+                id,
+                content,
+                type,
+                created_at: new Date().toISOString()
+            };
+            items.push(newNotice);
+            await saveTable('notices', items);
+            return newNotice;
         }
     }
 };

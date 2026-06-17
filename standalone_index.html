@@ -2749,6 +2749,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initAdmin();
     initCalendar();
     
+    fetchActiveNotices();
+    initNoticeBanner();
+    
     updateGrowingPlantUI();
     updateAuthUI();
     updateCalendarTab();
@@ -2756,6 +2759,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Admin Dashboard Logic ---
 let currentEditUserId = null;
+let adminSelectedUserId = null;
+let adminCalendarDate = new Date();
 let allAdminUsers = [];
 let allAdminSessions = [];
 let allAdminMemos = [];
@@ -2854,15 +2859,33 @@ function initAdmin() {
             }
         });
     }
+
+    // Admin user calendar month navigations
+    const adminCalPrev = document.getElementById('btn-admin-cal-prev');
+    const adminCalNext = document.getElementById('btn-admin-cal-next');
+    if (adminCalPrev) {
+        adminCalPrev.addEventListener('click', () => {
+            if (adminSelectedUserId) {
+                adminCalendarDate.setMonth(adminCalendarDate.getMonth() - 1);
+                renderAdminUserCalendar(adminSelectedUserId, adminCalendarDate);
+            }
+        });
+    }
+    if (adminCalNext) {
+        adminCalNext.addEventListener('click', () => {
+            if (adminSelectedUserId) {
+                adminCalendarDate.setMonth(adminCalendarDate.getMonth() + 1);
+                renderAdminUserCalendar(adminSelectedUserId, adminCalendarDate);
+            }
+        });
+    }
+
+    // Notice & Motivation Admin listeners
+    initAdminNoticeManagement();
 }
 
 async function loadAdminData() {
     try {
-        const stats = await apiFetch('/admin/stats');
-        document.getElementById('admin-total-users').textContent = stats.totalUsers;
-        document.getElementById('admin-total-minutes').textContent = `${stats.totalStudyMinutes}분`;
-        document.getElementById('admin-total-trees').textContent = stats.totalTreesPlanted;
-
         // Fetch all data once
         allAdminUsers = await apiFetch('/admin/users');
         allAdminSessions = await apiFetch('/admin/sessions');
@@ -2873,7 +2896,7 @@ async function loadAdminData() {
         const userTable = document.querySelector('#table-users tbody');
         userTable.innerHTML = allAdminUsers.map(u => `
             <tr>
-                <td>${escapeHtml(u.username)}</td>
+                <td><span class="user-name-link" data-userid="${u.id}" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 500;">${escapeHtml(u.username)}</span></td>
                 <td>${new Date(u.created_at).toLocaleDateString()}</td>
                 <td>${u.role === 'admin' ? '👑 관리자' : '👤 일반'}</td>
                 <td>
@@ -2891,6 +2914,22 @@ async function loadAdminData() {
             });
         });
 
+        // Attach listeners for Username links
+        const nameLinks = userTable.querySelectorAll('.user-name-link');
+        nameLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                const userId = link.dataset.userid;
+                openUserDetail(userId);
+            });
+        });
+
+        // Also fetch active notices to pre-fill admin inputs
+        const data = await apiFetch('/notices');
+        const inputNotice = document.getElementById('admin-input-notice');
+        const inputQuote = document.getElementById('admin-input-quote');
+        if (inputNotice) inputNotice.value = data.notice || '';
+        if (inputQuote) inputQuote.value = data.quote || '';
+
     } catch (err) {
         console.error('Admin data load failed:', err);
     }
@@ -2901,13 +2940,26 @@ function openUserDetail(userId) {
     if (!user) return;
 
     currentEditUserId = userId;
+    adminSelectedUserId = userId;
+    adminCalendarDate = new Date();
     
     // Set form fields
     document.getElementById('admin-edit-username').value = user.username;
 
+    // Calculate total stats for the user
+    const sessions = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));
+    const totalMinutes = sessions.reduce((acc, s) => acc + Number(s.duration || 0), 0);
+    let totalTrees = sessions.filter(s => s.tree_planted && s.tree_planted.trim() !== '').length;
+    if (totalTrees === 0) {
+        totalTrees = Math.floor(totalMinutes / 60);
+    }
+    document.getElementById('admin-user-total-time').textContent = `${totalMinutes}분`;
+    document.getElementById('admin-user-total-trees').textContent = `${totalTrees}그루`;
+
+    // Render interactive calendar
+    renderAdminUserCalendar(adminSelectedUserId, adminCalendarDate);
 
     // Filter and populate sessions
-    const sessions = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));
     const sessionTable = document.querySelector('#table-user-detail-sessions tbody');
     sessionTable.innerHTML = sessions.length > 0 ? sessions.map(s => `
         <tr>
@@ -2945,6 +2997,210 @@ function openUserDetail(userId) {
 
     // Show modal
     document.getElementById('user-detail-overlay').classList.add('active');
+}
+
+// --- ADMIN USER CALENDAR HELPERS ---
+function renderAdminUserCalendar(userId, date) {
+    const daysGrid = document.getElementById('admin-user-calendar-days');
+    const label = document.getElementById('admin-calendar-month-label');
+    if (!daysGrid || !label) return;
+
+    daysGrid.innerHTML = '';
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    label.textContent = `${year}년 ${String(month + 1).padStart(2, '0')}월`;
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const prevTotalDays = new Date(year, month, 0).getDate();
+
+    const userSessionsFiltered = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));
+    const userMemosFiltered = allAdminMemos.filter(m => m.userId && Number(m.userId.id) === Number(userId));
+
+    // Previous month trailing days
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+        const dayNum = prevTotalDays - i;
+        const cellDate = new Date(year, month - 1, dayNum);
+        createAdminDayCell(daysGrid, dayNum, cellDate, true, userSessionsFiltered, userMemosFiltered);
+    }
+
+    // Current month days
+    for (let i = 1; i <= totalDays; i++) {
+        const cellDate = new Date(year, month, i);
+        createAdminDayCell(daysGrid, i, cellDate, false, userSessionsFiltered, userMemosFiltered);
+    }
+
+    // Next month leading days
+    const totalCellsRendered = firstDayIndex + totalDays;
+    const remainingCells = 42 - totalCellsRendered;
+    for (let i = 1; i <= remainingCells; i++) {
+        const cellDate = new Date(year, month + 1, i);
+        createAdminDayCell(daysGrid, i, cellDate, true, userSessionsFiltered, userMemosFiltered);
+    }
+
+    // Hide details by default when changing months
+    const detailsContainer = document.getElementById('admin-user-day-details');
+    if (detailsContainer) detailsContainer.style.display = 'none';
+}
+
+function createAdminDayCell(grid, dayNum, date, isOtherMonth, sessions, memos) {
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day-cell';
+    if (isOtherMonth) cell.classList.add('other-month');
+
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+        cell.classList.add('today');
+    }
+
+    const daySessions = sessions.filter(s => new Date(s.end_time || s.start_time || s.startTime).toDateString() === date.toDateString());
+    const dayMemos = memos.filter(m => new Date(m.created_at).toDateString() === date.toDateString());
+
+    const totalMinutes = daySessions.reduce((acc, s) => acc + Number(s.duration || 0), 0);
+
+    if (totalMinutes > 0) {
+        cell.classList.add('has-session');
+        const treeCount = Math.floor(totalMinutes / 60);
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'day-session-info';
+        infoDiv.innerHTML = `<span class="focus-time"><span class="material-symbols-rounded" style="font-size: 0.75rem; vertical-align: middle;">schedule</span>${totalMinutes}분</span><span class="focus-divider">|</span><span class="focus-icon">🌳 ${treeCount}</span>`;
+        cell.appendChild(infoDiv);
+    }
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'day-number';
+    numSpan.textContent = dayNum;
+    cell.appendChild(numSpan);
+
+    cell.addEventListener('click', () => {
+        grid.querySelectorAll('.calendar-day-cell').forEach(c => c.classList.remove('active-selected'));
+        cell.classList.add('active-selected');
+        showAdminDayDetails(date, daySessions, dayMemos);
+    });
+
+    grid.appendChild(cell);
+}
+
+function showAdminDayDetails(date, sessions, memos) {
+    const label = document.getElementById('admin-user-detail-day-label');
+    const content = document.getElementById('admin-user-detail-day-content');
+    const container = document.getElementById('admin-user-day-details');
+    if (!label || !content || !container) return;
+
+    container.style.display = 'block';
+    label.textContent = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 기록`;
+
+    const totalMinutes = sessions.reduce((acc, s) => acc + Number(s.duration || 0), 0);
+    const treeCount = Math.floor(totalMinutes / 60);
+    const trees = Array(treeCount).fill('🌳');
+
+    let memosHTML = '';
+    if (memos.length > 0) {
+        memosHTML = `<ul class="detail-memos-list" style="margin: 6px 0 0 0; padding-left: 20px; list-style-type: disc;">` + memos.map(m => `
+            <li style="color: ${m.completed ? 'var(--text-secondary)' : 'var(--text-primary)'}; text-decoration: ${m.completed ? 'line-through' : 'none'};">
+                ${escapeHtml(m.content)} ${m.completed ? '(완료)' : '(진행중)'}
+            </li>
+        `).join('') + `</ul>`;
+    } else {
+        memosHTML = `<p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 0 0;">기록된 메모가 없습니다.</p>`;
+    }
+
+    content.innerHTML = `
+        <div style="margin-bottom: 8px;">
+            <strong>총 집중 시간:</strong> <span class="font-mono" style="color: var(--accent); font-weight: 600;">${totalMinutes}분</span>
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>심은 나무:</strong> ${treeCount > 0 ? trees.join(' ') + ` (${treeCount}그루)` : '<span style="color: var(--text-secondary);">없음</span>'}
+        </div>
+        <div>
+            <strong>작성한 메모:</strong>
+            ${memosHTML}
+        </div>
+    `;
+}
+
+// --- Notice & Daily Motivation Helper Functions ---
+async function fetchActiveNotices() {
+    try {
+        const data = await apiFetch('/notices');
+        
+        // Render Notice Banner
+        const banner = document.getElementById('notice-banner');
+        const bannerText = document.getElementById('notice-banner-text');
+        if (banner && bannerText) {
+            if (data.notice && data.notice.trim() !== '') {
+                bannerText.textContent = data.notice;
+                banner.style.display = 'flex';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+        
+        // Render Daily Quote
+        const quoteContainer = document.getElementById('daily-quote-container');
+        const quoteText = document.getElementById('daily-quote-text');
+        if (quoteContainer && quoteText) {
+            if (data.quote && data.quote.trim() !== '') {
+                quoteText.textContent = `"${data.quote}"`;
+                quoteContainer.style.display = 'block';
+            } else {
+                quoteContainer.style.display = 'none';
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load notices:', err);
+    }
+}
+
+function initNoticeBanner() {
+    const closeBtn = document.getElementById('btn-close-notice');
+    const banner = document.getElementById('notice-banner');
+    if (closeBtn && banner) {
+        closeBtn.addEventListener('click', () => {
+            banner.style.display = 'none';
+        });
+    }
+}
+
+function initAdminNoticeManagement() {
+    const saveNoticeBtn = document.getElementById('btn-admin-save-notice');
+    const saveQuoteBtn = document.getElementById('btn-admin-save-quote');
+    const inputNotice = document.getElementById('admin-input-notice');
+    const inputQuote = document.getElementById('admin-input-quote');
+
+    if (saveNoticeBtn && inputNotice) {
+        saveNoticeBtn.addEventListener('click', async () => {
+            const content = inputNotice.value.trim();
+            try {
+                await apiFetch('/admin/notices', {
+                    method: 'POST',
+                    body: JSON.stringify({ content, type: 'notice' })
+                });
+                alert('공지사항이 성공적으로 등록되었습니다.');
+                fetchActiveNotices();
+            } catch (err) {
+                alert(err.message || '공지사항 등록에 실패했습니다.');
+            }
+        });
+    }
+
+    if (saveQuoteBtn && inputQuote) {
+        saveQuoteBtn.addEventListener('click', async () => {
+            const content = inputQuote.value.trim();
+            try {
+                await apiFetch('/admin/notices', {
+                    method: 'POST',
+                    body: JSON.stringify({ content, type: 'quote' })
+                });
+                alert('동기부여 문구가 성공적으로 등록되었습니다.');
+                fetchActiveNotices();
+            } catch (err) {
+                alert(err.message || '동기부여 문구 등록에 실패했습니다.');
+            }
+        });
+    }
 }
 
 // --- Tab Switcher ---
@@ -4534,6 +4790,13 @@ function initUserSettings() {
             </div>
         </header>
 
+        <!-- Announcement Banner -->
+        <div id="notice-banner" class="glass-card notice-banner" style="display: none; margin: 12px 24px 0 24px; padding: 10px 16px; align-items: center; gap: 12px; border-left: 4px solid var(--accent); background: rgba(255, 255, 255, 0.03);">
+            <span class="material-symbols-rounded" style="color: var(--accent); font-size: 1.2rem;">campaign</span>
+            <div id="notice-banner-text" style="flex: 1; font-size: 0.85rem; color: var(--text-primary); text-align: left;">공지사항 내용</div>
+            <button id="btn-close-notice" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center;"><span class="material-symbols-rounded" style="font-size: 1rem;">close</span></button>
+        </div>
+
         <!-- Tab 1: Focus Space (Default Grid) -->
         <div id="tab-focus-space" class="tab-pane active">
             <!-- Primary Layout Grid -->
@@ -4542,9 +4805,12 @@ function initUserSettings() {
                 <!-- Left Side: Focus Core (Clock & Pomodoro) -->
                 <section class="grid-section left-pane">
                     <!-- Large Digital Clock & Date Card -->
-                    <div class="glass-card clock-card" id="widget-clock">
+                    <div class="glass-card clock-card" id="widget-clock" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
                         <div class="clock-display" id="clock-time">00:00:00</div>
                         <div class="clock-date" id="clock-date">2026년 06월 05일 금요일</div>
+                        <div id="daily-quote-container" style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; max-width: 80%; font-style: italic; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 4px; display: none;">
+                            <span id="daily-quote-text">"할 수 있다고 믿는 사람은 결국 해낸다."</span>
+                        </div>
                     </div>
 
                     <!-- Pomodoro Timer Card -->
@@ -4863,20 +5129,7 @@ function initUserSettings() {
                     <button id="btn-admin-close" class="btn btn-secondary">닫기</button>
                 </div>
 
-                <div class="admin-stats-grid">
-                    <div class="admin-stat-card glass-card">
-                        <h3>총 사용자</h3>
-                        <p id="admin-total-users">0</p>
-                    </div>
-                    <div class="admin-stat-card glass-card">
-                        <h3>총 집중 시간</h3>
-                        <p id="admin-total-minutes">0분</p>
-                    </div>
-                    <div class="admin-stat-card glass-card">
-                        <h3>심은 나무 총합</h3>
-                        <p id="admin-total-trees">0</p>
-                    </div>
-                </div>
+
 
                 <div class="admin-content-grid">
                     <!-- Pane 1: User list with detailed search/management -->
@@ -4894,6 +5147,23 @@ function initUserSettings() {
                                 </thead>
                                 <tbody></tbody>
                             </table>
+                        </div>
+                    </section>
+
+                    <!-- Pane 2: Manage Notices & Daily Quotes -->
+                    <section class="glass-card admin-section">
+                        <h2>공지사항 및 동기부여 문구 관리</h2>
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="admin-input-notice">상단 공지사항 배너 문구</label>
+                                <textarea id="admin-input-notice" rows="2" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px; color: #ffffff; font-size: 0.85rem;" placeholder="메인 화면 상단에 띄울 공지 내용을 입력하세요 (비워두면 숨겨집니다)"></textarea>
+                                <button id="btn-admin-save-notice" class="btn btn-primary" style="align-self: flex-end; margin-top: 4px;">공지사항 저장</button>
+                            </div>
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px;">
+                                <label for="admin-input-quote">오늘의 동기부여 문구</label>
+                                <textarea id="admin-input-quote" rows="2" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px; color: #ffffff; font-size: 0.85rem;" placeholder="시계 카드 아래에 표시할 응원 문구를 입력하세요"></textarea>
+                                <button id="btn-admin-save-quote" class="btn btn-primary" style="align-self: flex-end; margin-top: 4px;">동기부여 문구 저장</button>
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -5028,14 +5298,46 @@ function initUserSettings() {
 
                 <!-- Sub-tabs switcher in detail modal -->
                 <div class="detail-tab-switcher">
-                    <button class="detail-tab-btn active" data-detail-pane="detail-pane-sessions">학습 세션</button>
+                    <button class="detail-tab-btn active" data-detail-pane="detail-pane-calendar">달력 및 통계</button>
+                    <button class="detail-tab-btn" data-detail-pane="detail-pane-sessions">학습 세션</button>
                     <button class="detail-tab-btn" data-detail-pane="detail-pane-memos">저장 메모</button>
                     <button class="detail-tab-btn" data-detail-pane="detail-pane-logs">접속 로그</button>
                 </div>
 
                 <div class="detail-panes">
+                    <!-- Calendar & Stats Pane -->
+                    <div class="detail-pane active" id="detail-pane-calendar">
+                        <div class="admin-user-stats-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">총 집중 시간</div>
+                                <div id="admin-user-total-time" style="font-size: 1.4rem; font-weight: 700; color: var(--accent); margin-top: 4px;">0분</div>
+                            </div>
+                            <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">심은 나무</div>
+                                <div id="admin-user-total-trees" style="font-size: 1.4rem; font-weight: 700; color: var(--accent); margin-top: 4px;">0그루</div>
+                            </div>
+                        </div>
+                        <div class="admin-user-calendar-wrapper" style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 16px;">
+                            <div class="calendar-header-wrapper" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h4 id="admin-calendar-month-label" style="font-size: 0.95rem; color: var(--text-primary); margin: 0;">2026년 06월</h4>
+                                <div class="calendar-month-selector" style="display: flex; gap: 8px;">
+                                    <button id="btn-admin-cal-prev" class="calendar-nav-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center;"><span class="material-symbols-rounded" style="font-size: 1.2rem;">chevron_left</span></button>
+                                    <button id="btn-admin-cal-next" class="calendar-nav-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center;"><span class="material-symbols-rounded" style="font-size: 1.2rem;">chevron_right</span></button>
+                                </div>
+                            </div>
+                            <div class="calendar-weekdays" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+                                <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+                            </div>
+                            <div id="admin-user-calendar-days" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;"></div>
+                        </div>
+                        <div id="admin-user-day-details" style="margin-top: 16px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: var(--radius-sm); padding: 12px; display: none;">
+                            <h5 id="admin-user-detail-day-label" style="font-size: 0.85rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; margin-bottom: 8px; font-weight: 500;">날짜 기록</h5>
+                            <div id="admin-user-detail-day-content" style="font-size: 0.8rem; line-height: 1.4; color: var(--text-primary);"></div>
+                        </div>
+                    </div>
+
                     <!-- Sessions Pane -->
-                    <div class="detail-pane active" id="detail-pane-sessions">
+                    <div class="detail-pane" id="detail-pane-sessions">
                         <div class="admin-table-wrapper">
                             <table id="table-user-detail-sessions">
                                 <thead>

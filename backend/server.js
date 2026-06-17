@@ -308,6 +308,38 @@ app.get('/api/admin/memos', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
+// --- Notice & Motivation Routes ---
+app.get('/api/notices', async (req, res) => {
+    try {
+        const notices = await db.notices.listAll();
+        const latestNotice = notices.filter(n => n.type === 'notice').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
+        const latestQuote = notices.filter(n => n.type === 'quote').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
+        
+        res.json({
+            notice: latestNotice ? latestNotice.content : '',
+            quote: latestQuote ? latestQuote.content : ''
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.post('/api/admin/notices', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { content, type } = req.body;
+        if (!content && content !== '') {
+            return res.status(400).json({ message: 'content가 필요합니다.' });
+        }
+        if (type !== 'notice' && type !== 'quote') {
+            return res.status(400).json({ message: '올바르지 않은 type입니다.' });
+        }
+        const newNotice = await db.notices.create({ content, type });
+        res.status(201).json(newNotice);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
     try {

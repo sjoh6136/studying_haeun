@@ -356,6 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initAdmin();
     initCalendar();
     
+    fetchActiveNotices();
+    initNoticeBanner();
+    
     updateGrowingPlantUI();
     updateAuthUI();
     updateCalendarTab();
@@ -363,6 +366,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Admin Dashboard Logic ---
 let currentEditUserId = null;
+let adminSelectedUserId = null;
+let adminCalendarDate = new Date();
 let allAdminUsers = [];
 let allAdminSessions = [];
 let allAdminMemos = [];
@@ -461,15 +466,33 @@ function initAdmin() {
             }
         });
     }
+
+    // Admin user calendar month navigations
+    const adminCalPrev = document.getElementById('btn-admin-cal-prev');
+    const adminCalNext = document.getElementById('btn-admin-cal-next');
+    if (adminCalPrev) {
+        adminCalPrev.addEventListener('click', () => {
+            if (adminSelectedUserId) {
+                adminCalendarDate.setMonth(adminCalendarDate.getMonth() - 1);
+                renderAdminUserCalendar(adminSelectedUserId, adminCalendarDate);
+            }
+        });
+    }
+    if (adminCalNext) {
+        adminCalNext.addEventListener('click', () => {
+            if (adminSelectedUserId) {
+                adminCalendarDate.setMonth(adminCalendarDate.getMonth() + 1);
+                renderAdminUserCalendar(adminSelectedUserId, adminCalendarDate);
+            }
+        });
+    }
+
+    // Notice & Motivation Admin listeners
+    initAdminNoticeManagement();
 }
 
 async function loadAdminData() {
     try {
-        const stats = await apiFetch('/admin/stats');
-        document.getElementById('admin-total-users').textContent = stats.totalUsers;
-        document.getElementById('admin-total-minutes').textContent = `${stats.totalStudyMinutes}분`;
-        document.getElementById('admin-total-trees').textContent = stats.totalTreesPlanted;
-
         // Fetch all data once
         allAdminUsers = await apiFetch('/admin/users');
         allAdminSessions = await apiFetch('/admin/sessions');
@@ -480,7 +503,7 @@ async function loadAdminData() {
         const userTable = document.querySelector('#table-users tbody');
         userTable.innerHTML = allAdminUsers.map(u => `
             <tr>
-                <td>${escapeHtml(u.username)}</td>
+                <td><span class="user-name-link" data-userid="${u.id}" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 500;">${escapeHtml(u.username)}</span></td>
                 <td>${new Date(u.created_at).toLocaleDateString()}</td>
                 <td>${u.role === 'admin' ? '👑 관리자' : '👤 일반'}</td>
                 <td>
@@ -498,6 +521,22 @@ async function loadAdminData() {
             });
         });
 
+        // Attach listeners for Username links
+        const nameLinks = userTable.querySelectorAll('.user-name-link');
+        nameLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                const userId = link.dataset.userid;
+                openUserDetail(userId);
+            });
+        });
+
+        // Also fetch active notices to pre-fill admin inputs
+        const data = await apiFetch('/notices');
+        const inputNotice = document.getElementById('admin-input-notice');
+        const inputQuote = document.getElementById('admin-input-quote');
+        if (inputNotice) inputNotice.value = data.notice || '';
+        if (inputQuote) inputQuote.value = data.quote || '';
+
     } catch (err) {
         console.error('Admin data load failed:', err);
     }
@@ -508,12 +547,26 @@ function openUserDetail(userId) {
     if (!user) return;
 
     currentEditUserId = userId;
+    adminSelectedUserId = userId;
+    adminCalendarDate = new Date();
     
     // Set form fields
     document.getElementById('admin-edit-username').value = user.username;
 
-    // Filter and populate sessions
+    // Calculate total stats for the user
     const sessions = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));
+    const totalMinutes = sessions.reduce((acc, s) => acc + Number(s.duration || 0), 0);
+    let totalTrees = sessions.filter(s => s.tree_planted && s.tree_planted.trim() !== '').length;
+    if (totalTrees === 0) {
+        totalTrees = Math.floor(totalMinutes / 60);
+    }
+    document.getElementById('admin-user-total-time').textContent = `${totalMinutes}분`;
+    document.getElementById('admin-user-total-trees').textContent = `${totalTrees}그루`;
+
+    // Render interactive calendar
+    renderAdminUserCalendar(adminSelectedUserId, adminCalendarDate);
+
+    // Filter and populate sessions
     const sessionTable = document.querySelector('#table-user-detail-sessions tbody');
     sessionTable.innerHTML = sessions.length > 0 ? sessions.map(s => `
         <tr>
@@ -551,6 +604,210 @@ function openUserDetail(userId) {
 
     // Show modal
     document.getElementById('user-detail-overlay').classList.add('active');
+}
+
+// --- ADMIN USER CALENDAR HELPERS ---
+function renderAdminUserCalendar(userId, date) {
+    const daysGrid = document.getElementById('admin-user-calendar-days');
+    const label = document.getElementById('admin-calendar-month-label');
+    if (!daysGrid || !label) return;
+
+    daysGrid.innerHTML = '';
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    label.textContent = `${year}년 ${String(month + 1).padStart(2, '0')}월`;
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const prevTotalDays = new Date(year, month, 0).getDate();
+
+    const userSessionsFiltered = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));
+    const userMemosFiltered = allAdminMemos.filter(m => m.userId && Number(m.userId.id) === Number(userId));
+
+    // Previous month trailing days
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+        const dayNum = prevTotalDays - i;
+        const cellDate = new Date(year, month - 1, dayNum);
+        createAdminDayCell(daysGrid, dayNum, cellDate, true, userSessionsFiltered, userMemosFiltered);
+    }
+
+    // Current month days
+    for (let i = 1; i <= totalDays; i++) {
+        const cellDate = new Date(year, month, i);
+        createAdminDayCell(daysGrid, i, cellDate, false, userSessionsFiltered, userMemosFiltered);
+    }
+
+    // Next month leading days
+    const totalCellsRendered = firstDayIndex + totalDays;
+    const remainingCells = 42 - totalCellsRendered;
+    for (let i = 1; i <= remainingCells; i++) {
+        const cellDate = new Date(year, month + 1, i);
+        createAdminDayCell(daysGrid, i, cellDate, true, userSessionsFiltered, userMemosFiltered);
+    }
+
+    // Hide details by default when changing months
+    const detailsContainer = document.getElementById('admin-user-day-details');
+    if (detailsContainer) detailsContainer.style.display = 'none';
+}
+
+function createAdminDayCell(grid, dayNum, date, isOtherMonth, sessions, memos) {
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day-cell';
+    if (isOtherMonth) cell.classList.add('other-month');
+
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+        cell.classList.add('today');
+    }
+
+    const daySessions = sessions.filter(s => new Date(s.end_time || s.start_time || s.startTime).toDateString() === date.toDateString());
+    const dayMemos = memos.filter(m => new Date(m.created_at).toDateString() === date.toDateString());
+
+    const totalMinutes = daySessions.reduce((acc, s) => acc + Number(s.duration || 0), 0);
+
+    if (totalMinutes > 0) {
+        cell.classList.add('has-session');
+        const treeCount = Math.floor(totalMinutes / 60);
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'day-session-info';
+        infoDiv.innerHTML = `<span class="focus-time"><span class="material-symbols-rounded" style="font-size: 0.75rem; vertical-align: middle;">schedule</span>${totalMinutes}분</span><span class="focus-divider">|</span><span class="focus-icon">🌳 ${treeCount}</span>`;
+        cell.appendChild(infoDiv);
+    }
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'day-number';
+    numSpan.textContent = dayNum;
+    cell.appendChild(numSpan);
+
+    cell.addEventListener('click', () => {
+        grid.querySelectorAll('.calendar-day-cell').forEach(c => c.classList.remove('active-selected'));
+        cell.classList.add('active-selected');
+        showAdminDayDetails(date, daySessions, dayMemos);
+    });
+
+    grid.appendChild(cell);
+}
+
+function showAdminDayDetails(date, sessions, memos) {
+    const label = document.getElementById('admin-user-detail-day-label');
+    const content = document.getElementById('admin-user-detail-day-content');
+    const container = document.getElementById('admin-user-day-details');
+    if (!label || !content || !container) return;
+
+    container.style.display = 'block';
+    label.textContent = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 기록`;
+
+    const totalMinutes = sessions.reduce((acc, s) => acc + Number(s.duration || 0), 0);
+    const treeCount = Math.floor(totalMinutes / 60);
+    const trees = Array(treeCount).fill('🌳');
+
+    let memosHTML = '';
+    if (memos.length > 0) {
+        memosHTML = `<ul class="detail-memos-list" style="margin: 6px 0 0 0; padding-left: 20px; list-style-type: disc;">` + memos.map(m => `
+            <li style="color: ${m.completed ? 'var(--text-secondary)' : 'var(--text-primary)'}; text-decoration: ${m.completed ? 'line-through' : 'none'};">
+                ${escapeHtml(m.content)} ${m.completed ? '(완료)' : '(진행중)'}
+            </li>
+        `).join('') + `</ul>`;
+    } else {
+        memosHTML = `<p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 0 0;">기록된 메모가 없습니다.</p>`;
+    }
+
+    content.innerHTML = `
+        <div style="margin-bottom: 8px;">
+            <strong>총 집중 시간:</strong> <span class="font-mono" style="color: var(--accent); font-weight: 600;">${totalMinutes}분</span>
+        </div>
+        <div style="margin-bottom: 8px;">
+            <strong>심은 나무:</strong> ${treeCount > 0 ? trees.join(' ') + ` (${treeCount}그루)` : '<span style="color: var(--text-secondary);">없음</span>'}
+        </div>
+        <div>
+            <strong>작성한 메모:</strong>
+            ${memosHTML}
+        </div>
+    `;
+}
+
+// --- Notice & Daily Motivation Helper Functions ---
+async function fetchActiveNotices() {
+    try {
+        const data = await apiFetch('/notices');
+        
+        // Render Notice Banner
+        const banner = document.getElementById('notice-banner');
+        const bannerText = document.getElementById('notice-banner-text');
+        if (banner && bannerText) {
+            if (data.notice && data.notice.trim() !== '') {
+                bannerText.textContent = data.notice;
+                banner.style.display = 'flex';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+        
+        // Render Daily Quote
+        const quoteContainer = document.getElementById('daily-quote-container');
+        const quoteText = document.getElementById('daily-quote-text');
+        if (quoteContainer && quoteText) {
+            if (data.quote && data.quote.trim() !== '') {
+                quoteText.textContent = `"${data.quote}"`;
+                quoteContainer.style.display = 'block';
+            } else {
+                quoteContainer.style.display = 'none';
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load notices:', err);
+    }
+}
+
+function initNoticeBanner() {
+    const closeBtn = document.getElementById('btn-close-notice');
+    const banner = document.getElementById('notice-banner');
+    if (closeBtn && banner) {
+        closeBtn.addEventListener('click', () => {
+            banner.style.display = 'none';
+        });
+    }
+}
+
+function initAdminNoticeManagement() {
+    const saveNoticeBtn = document.getElementById('btn-admin-save-notice');
+    const saveQuoteBtn = document.getElementById('btn-admin-save-quote');
+    const inputNotice = document.getElementById('admin-input-notice');
+    const inputQuote = document.getElementById('admin-input-quote');
+
+    if (saveNoticeBtn && inputNotice) {
+        saveNoticeBtn.addEventListener('click', async () => {
+            const content = inputNotice.value.trim();
+            try {
+                await apiFetch('/admin/notices', {
+                    method: 'POST',
+                    body: JSON.stringify({ content, type: 'notice' })
+                });
+                alert('공지사항이 성공적으로 등록되었습니다.');
+                fetchActiveNotices();
+            } catch (err) {
+                alert(err.message || '공지사항 등록에 실패했습니다.');
+            }
+        });
+    }
+
+    if (saveQuoteBtn && inputQuote) {
+        saveQuoteBtn.addEventListener('click', async () => {
+            const content = inputQuote.value.trim();
+            try {
+                await apiFetch('/admin/notices', {
+                    method: 'POST',
+                    body: JSON.stringify({ content, type: 'quote' })
+                });
+                alert('동기부여 문구가 성공적으로 등록되었습니다.');
+                fetchActiveNotices();
+            } catch (err) {
+                alert(err.message || '동기부여 문구 등록에 실패했습니다.');
+            }
+        });
+    }
 }
 
 // --- Tab Switcher ---
