@@ -14,7 +14,9 @@ if (!fs.existsSync(CREDENTIALS_PATH)) {
 let sheetsClient = null;
 let googleAuth = null;
 const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
-const dbMode = process.env.DB_MODE || 'local'; // 'local' or 'sheets'
+const defaultDbMode = (fs.existsSync(CREDENTIALS_PATH) && spreadsheetId) ? 'sheets' : 'local';
+const dbMode = process.env.DB_MODE || defaultDbMode; // 'local' or 'sheets'
+process.env.DB_MODE = dbMode;
 
 // Default JSON DB Schema
 const defaultSchema = {
