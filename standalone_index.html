@@ -2524,11 +2524,6 @@ const state = {
     // Stretch reminder toggle
     stretchEnabled: true,
 
-    // Notices & Quotes toggle state
-    noticesVisible: localStorage.getItem('study-space-notices-visible') !== 'false',
-    activeNotice: '',
-    activeQuote: '',
-
     // User authentication state
     user: null
 };
@@ -2749,7 +2744,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     fetchActiveNotices();
     initNoticeBanner();
-    initNoticesToggle();
     
     updateGrowingPlantUI();
     updateAuthUI();
@@ -3121,66 +3115,33 @@ function showAdminDayDetails(date, sessions, memos) {
 }
 
 // --- Notice & Daily Motivation Helper Functions ---
-function updateNoticesVisibility() {
-    const banner = document.getElementById('notice-banner');
-    const bannerText = document.getElementById('notice-banner-text');
-    const quoteContainer = document.getElementById('daily-quote-container');
-    const quoteText = document.getElementById('daily-quote-text');
-    
-    if (state.noticesVisible) {
+async function fetchActiveNotices() {
+    try {
+        const data = await apiFetch('/notices');
+        
+        // Render Notice Banner
+        const banner = document.getElementById('notice-banner');
+        const bannerText = document.getElementById('notice-banner-text');
         if (banner && bannerText) {
-            if (state.activeNotice && state.activeNotice.trim() !== '') {
-                bannerText.textContent = state.activeNotice;
+            if (data.notice && data.notice.trim() !== '') {
+                bannerText.textContent = data.notice;
                 banner.style.display = 'flex';
             } else {
                 banner.style.display = 'none';
             }
         }
+        
+        // Render Daily Quote
+        const quoteContainer = document.getElementById('daily-quote-container');
+        const quoteText = document.getElementById('daily-quote-text');
         if (quoteContainer && quoteText) {
-            if (state.activeQuote && state.activeQuote.trim() !== '') {
-                quoteText.textContent = `"${state.activeQuote}"`;
+            if (data.quote && data.quote.trim() !== '') {
+                quoteText.textContent = `"${data.quote}"`;
                 quoteContainer.style.display = 'block';
             } else {
                 quoteContainer.style.display = 'none';
             }
         }
-    } else {
-        if (banner) banner.style.display = 'none';
-        if (quoteContainer) quoteContainer.style.display = 'none';
-    }
-}
-
-function initNoticesToggle() {
-    const btn = document.getElementById('btn-toggle-notices');
-    if (!btn) return;
-    
-    // Set initial button active class based on state.noticesVisible
-    if (state.noticesVisible) {
-        btn.classList.add('active');
-    } else {
-        btn.classList.remove('active');
-    }
-    
-    btn.addEventListener('click', () => {
-        state.noticesVisible = !state.noticesVisible;
-        localStorage.setItem('study-space-notices-visible', state.noticesVisible);
-        
-        if (state.noticesVisible) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-        
-        updateNoticesVisibility();
-    });
-}
-
-async function fetchActiveNotices() {
-    try {
-        const data = await apiFetch('/notices');
-        state.activeNotice = data.notice || '';
-        state.activeQuote = data.quote || '';
-        updateNoticesVisibility();
     } catch (err) {
         console.error('Failed to load notices:', err);
     }
@@ -4788,6 +4749,38 @@ function initUserSettings() {
         <div class="rain-overlay" id="rain-overlay"></div>
     </div>
 
+    <!-- Fullscreen Login Page (Visible when not logged in) -->
+    <div id="login-page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; width: 100vw; position: absolute; z-index: 1000; padding: 24px; box-sizing: border-box; gap: 32px; top: 0; left: 0;">
+        <!-- Large Clock Widget for Login Screen -->
+        <div class="login-clock-card" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+            <div class="clock-display" id="login-clock-time" style="font-size: 3.5rem; font-weight: 700; color: #ffffff; font-family: 'JetBrains Mono', monospace;">00:00:00</div>
+            <div class="clock-date" id="login-clock-date" style="font-size: 1.1rem; color: var(--text-secondary);">2026년 06월 05일 금요일</div>
+        </div>
+
+        <!-- Login Card -->
+        <div class="glass-card login-card" style="width: 400px; max-width: 90vw; padding: 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+            <div class="login-header" style="text-align: center; margin-bottom: 8px;">
+                <h2 id="main-login-title" style="font-size: 1.5rem; color: var(--accent); font-weight: 600; margin: 0;">로그인</h2>
+            </div>
+            <div class="login-body">
+                <form id="main-form-login" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="main-login-username" style="font-size: 0.85rem; color: var(--text-secondary); text-align: left;">아이디</label>
+                        <input type="text" id="main-login-username" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 12px; color: #ffffff; font-size: 0.95rem; outline: none; transition: border-color 0.2s;" placeholder="아이디를 입력하세요" required>
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="main-login-password" style="font-size: 0.85rem; color: var(--text-secondary); text-align: left;">비밀번호</label>
+                        <input type="password" id="main-login-password" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 12px; color: #ffffff; font-size: 0.95rem; outline: none; transition: border-color 0.2s;" placeholder="비밀번호를 입력하세요" required>
+                    </div>
+                    <button type="submit" id="main-btn-login-submit" class="btn btn-primary" style="padding: 12px; font-size: 1rem; width: 100%; margin-top: 8px;">로그인</button>
+                </form>
+                <div class="login-footer" style="text-align: center; margin-top: 16px;">
+                    <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">계정이 없으신가요? <a href="#" id="main-btn-toggle-auth" style="color: var(--accent); text-decoration: underline;">회원가입</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Hidden YouTube Player Container (Used by Iframe API) -->
     <div id="youtube-player" style="position: absolute; width: 1px; height: 1px; left: -9999px; top: -9999px; pointer-events: none;"></div>
 
@@ -4818,7 +4811,6 @@ function initUserSettings() {
                         <span class="material-symbols-rounded">logout</span>
                     </button>
                 </div>
-                <button id="btn-login-open" class="btn btn-secondary">로그인</button>
                 <button id="btn-focus-mode" class="icon-button" title="집중 모드 (화면 보호기)">
                     <span class="material-symbols-rounded">fullscreen</span>
                 </button>

@@ -131,11 +131,6 @@ const state = {
     // Stretch reminder toggle
     stretchEnabled: true,
 
-    // Notices & Quotes toggle state
-    noticesVisible: localStorage.getItem('study-space-notices-visible') !== 'false',
-    activeNotice: '',
-    activeQuote: '',
-
     // User authentication state
     user: null
 };
@@ -356,7 +351,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     fetchActiveNotices();
     initNoticeBanner();
-    initNoticesToggle();
     
     updateGrowingPlantUI();
     updateAuthUI();
@@ -728,66 +722,33 @@ function showAdminDayDetails(date, sessions, memos) {
 }
 
 // --- Notice & Daily Motivation Helper Functions ---
-function updateNoticesVisibility() {
-    const banner = document.getElementById('notice-banner');
-    const bannerText = document.getElementById('notice-banner-text');
-    const quoteContainer = document.getElementById('daily-quote-container');
-    const quoteText = document.getElementById('daily-quote-text');
-    
-    if (state.noticesVisible) {
+async function fetchActiveNotices() {
+    try {
+        const data = await apiFetch('/notices');
+        
+        // Render Notice Banner
+        const banner = document.getElementById('notice-banner');
+        const bannerText = document.getElementById('notice-banner-text');
         if (banner && bannerText) {
-            if (state.activeNotice && state.activeNotice.trim() !== '') {
-                bannerText.textContent = state.activeNotice;
+            if (data.notice && data.notice.trim() !== '') {
+                bannerText.textContent = data.notice;
                 banner.style.display = 'flex';
             } else {
                 banner.style.display = 'none';
             }
         }
+        
+        // Render Daily Quote
+        const quoteContainer = document.getElementById('daily-quote-container');
+        const quoteText = document.getElementById('daily-quote-text');
         if (quoteContainer && quoteText) {
-            if (state.activeQuote && state.activeQuote.trim() !== '') {
-                quoteText.textContent = `"${state.activeQuote}"`;
+            if (data.quote && data.quote.trim() !== '') {
+                quoteText.textContent = `"${data.quote}"`;
                 quoteContainer.style.display = 'block';
             } else {
                 quoteContainer.style.display = 'none';
             }
         }
-    } else {
-        if (banner) banner.style.display = 'none';
-        if (quoteContainer) quoteContainer.style.display = 'none';
-    }
-}
-
-function initNoticesToggle() {
-    const btn = document.getElementById('btn-toggle-notices');
-    if (!btn) return;
-    
-    // Set initial button active class based on state.noticesVisible
-    if (state.noticesVisible) {
-        btn.classList.add('active');
-    } else {
-        btn.classList.remove('active');
-    }
-    
-    btn.addEventListener('click', () => {
-        state.noticesVisible = !state.noticesVisible;
-        localStorage.setItem('study-space-notices-visible', state.noticesVisible);
-        
-        if (state.noticesVisible) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-        
-        updateNoticesVisibility();
-    });
-}
-
-async function fetchActiveNotices() {
-    try {
-        const data = await apiFetch('/notices');
-        state.activeNotice = data.notice || '';
-        state.activeQuote = data.quote || '';
-        updateNoticesVisibility();
     } catch (err) {
         console.error('Failed to load notices:', err);
     }
