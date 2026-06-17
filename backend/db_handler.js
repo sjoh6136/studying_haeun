@@ -2,7 +2,13 @@ const fs = require('fs');
 const path = require('path');
 
 const LOCAL_DB_PATH = path.join(__dirname, 'db_local.json');
-const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+let CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+if (!fs.existsSync(CREDENTIALS_PATH)) {
+    const parentCredentials = path.join(__dirname, '..', 'credentials.json');
+    if (fs.existsSync(parentCredentials)) {
+        CREDENTIALS_PATH = parentCredentials;
+    }
+}
 
 // Cache Google sheets API client
 let sheetsClient = null;
