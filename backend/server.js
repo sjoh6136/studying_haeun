@@ -203,7 +203,6 @@ app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
         const safeUsers = users.map(u => ({
             id: u.id,
             username: u.username,
-            email: u.email,
             role: u.role,
             created_at: u.created_at
         }));
@@ -215,12 +214,11 @@ app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
 
 app.put('/api/admin/users/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const { username, email } = req.body;
-        const updatedUser = await db.users.update(req.params.id, { username, email });
+        const { username } = req.body;
+        const updatedUser = await db.users.update(req.params.id, { username });
         res.json({
             id: updatedUser.id,
             username: updatedUser.username,
-            email: updatedUser.email,
             role: updatedUser.role
         });
     } catch (err) {
@@ -237,7 +235,7 @@ app.get('/api/admin/logs', authenticateToken, isAdmin, async (req, res) => {
         
         const logsWithUser = logs.map(l => ({
             ...l,
-            userId: userMap[l.user_id] ? { id: l.user_id, username: userMap[l.user_id].username, email: userMap[l.user_id].email } : null
+            userId: userMap[l.user_id] ? { id: l.user_id, username: userMap[l.user_id].username } : null
         }));
         
         logsWithUser.sort((a, b) => new Date(b.login_time) - new Date(a.login_time));
@@ -281,7 +279,7 @@ app.get('/api/admin/sessions', authenticateToken, isAdmin, async (req, res) => {
         
         const sessionsWithUser = sessions.map(s => ({
             ...s,
-            userId: userMap[s.user_id] ? { id: s.user_id, username: userMap[s.user_id].username, email: userMap[s.user_id].email } : null
+            userId: userMap[s.user_id] ? { id: s.user_id, username: userMap[s.user_id].username } : null
         }));
         
         sessionsWithUser.sort((a, b) => new Date(b.end_time) - new Date(a.end_time));
@@ -300,7 +298,7 @@ app.get('/api/admin/memos', authenticateToken, isAdmin, async (req, res) => {
         
         const memosWithUser = memos.map(m => ({
             ...m,
-            userId: userMap[m.user_id] ? { id: m.user_id, username: userMap[m.user_id].username, email: userMap[m.user_id].email } : null
+            userId: userMap[m.user_id] ? { id: m.user_id, username: userMap[m.user_id].username } : null
         }));
         
         memosWithUser.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

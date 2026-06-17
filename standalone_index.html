@@ -2832,12 +2832,11 @@ function initAdmin() {
             if (!currentEditUserId) return;
 
             const username = document.getElementById('admin-edit-username').value.trim();
-            const email = document.getElementById('admin-edit-email').value.trim();
 
             try {
                 await apiFetch(`/admin/users/${currentEditUserId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ username, email })
+                    body: JSON.stringify({ username })
                 });
                 alert('사용자 정보가 성공적으로 수정되었습니다.');
                 userDetailOverlay.classList.remove('active');
@@ -2875,7 +2874,6 @@ async function loadAdminData() {
         userTable.innerHTML = allAdminUsers.map(u => `
             <tr>
                 <td>${escapeHtml(u.username)}</td>
-                <td>${escapeHtml(u.email)}</td>
                 <td>${new Date(u.created_at).toLocaleDateString()}</td>
                 <td>${u.role === 'admin' ? '👑 관리자' : '👤 일반'}</td>
                 <td>
@@ -2906,7 +2904,7 @@ function openUserDetail(userId) {
     
     // Set form fields
     document.getElementById('admin-edit-username').value = user.username;
-    document.getElementById('admin-edit-email').value = user.email;
+
 
     // Filter and populate sessions
     const sessions = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));
@@ -4889,7 +4887,6 @@ function initUserSettings() {
                                 <thead>
                                     <tr>
                                         <th>사용자명</th>
-                                        <th>이메일</th>
                                         <th>가입일</th>
                                         <th>역할</th>
                                         <th>관리</th>
@@ -5021,15 +5018,9 @@ function initUserSettings() {
                 <section class="detail-section edit-profile-section">
                     <h3>기본 정보 수정</h3>
                     <form id="form-admin-edit-user">
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label for="admin-edit-username">사용자명</label>
-                                <input type="text" id="admin-edit-username" placeholder="사용자명 입력" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="admin-edit-email">이메일</label>
-                                <input type="email" id="admin-edit-email" placeholder="이메일 입력" required>
-                            </div>
+                        <div class="form-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="admin-edit-username">사용자명</label>
+                            <input type="text" id="admin-edit-username" placeholder="사용자명 입력" required>
                         </div>
                         <button type="submit" class="btn btn-primary">수정 완료</button>
                     </form>

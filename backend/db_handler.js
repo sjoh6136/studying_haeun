@@ -17,7 +17,6 @@ const defaultSchema = {
         {
             id: 1,
             username: 'admin',
-            email: 'admin@lofi.com',
             password: 'admin123', // plain text for 'admin123'
             role: 'admin',
             created_at: new Date().toISOString()
@@ -83,7 +82,7 @@ function getSheetsService() {
 
 // Sheet headers definition
 const SHEET_HEADERS = {
-    users: ['id', 'username', 'email', 'password', 'role', 'created_at'],
+    users: ['id', 'username', 'password', 'role', 'created_at'],
     memos: ['id', 'user_id', 'content', 'completed', 'created_at'],
     study_sessions: ['id', 'user_id', 'duration', 'tree_planted', 'start_time', 'end_time'],
     connection_logs: ['id', 'user_id', 'login_time', 'ip_address']
@@ -144,7 +143,6 @@ if (dbMode === 'sheets') {
                 const defaultAdmin = {
                     id: 1,
                     username: 'admin',
-                    email: 'admin@lofi.com',
                     password: adminPasswordHash,
                     role: 'admin',
                     created_at: new Date().toISOString()
@@ -280,7 +278,6 @@ const db = {
             const newUser = {
                 id,
                 username,
-                email: '',
                 password,
                 role: 'user',
                 created_at: new Date().toISOString()
@@ -290,10 +287,7 @@ const db = {
             await saveTable('users', items);
             return newUser;
         },
-        async findByEmail(email) {
-            const items = await fetchTable('users');
-            return items.find(u => u.email === email) || null;
-        },
+
         async findByUsername(username) {
             const items = await fetchTable('users');
             return items.find(u => u.username === username) || null;
@@ -305,16 +299,14 @@ const db = {
         async listAll() {
             return await fetchTable('users');
         },
-        async update(id, { username, email, password }) {
+        async update(id, { username, password }) {
             const items = await fetchTable('users');
             const index = items.findIndex(u => Number(u.id) === Number(id));
             if (index === -1) throw new Error('사용자를 찾을 수 없습니다.');
 
-            if (email && items.some(u => u.email === email && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 이메일입니다.');
             if (username && items.some(u => u.username === username && Number(u.id) !== Number(id))) throw new Error('이미 사용 중인 사용자명입니다.');
 
             if (username !== undefined) items[index].username = username;
-            if (email !== undefined) items[index].email = email || '';
             if (password !== undefined) items[index].password = password;
 
             await saveTable('users', items);

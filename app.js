@@ -439,12 +439,11 @@ function initAdmin() {
             if (!currentEditUserId) return;
 
             const username = document.getElementById('admin-edit-username').value.trim();
-            const email = document.getElementById('admin-edit-email').value.trim();
 
             try {
                 await apiFetch(`/admin/users/${currentEditUserId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ username, email })
+                    body: JSON.stringify({ username })
                 });
                 alert('사용자 정보가 성공적으로 수정되었습니다.');
                 userDetailOverlay.classList.remove('active');
@@ -482,7 +481,6 @@ async function loadAdminData() {
         userTable.innerHTML = allAdminUsers.map(u => `
             <tr>
                 <td>${escapeHtml(u.username)}</td>
-                <td>${escapeHtml(u.email)}</td>
                 <td>${new Date(u.created_at).toLocaleDateString()}</td>
                 <td>${u.role === 'admin' ? '👑 관리자' : '👤 일반'}</td>
                 <td>
@@ -513,7 +511,6 @@ function openUserDetail(userId) {
     
     // Set form fields
     document.getElementById('admin-edit-username').value = user.username;
-    document.getElementById('admin-edit-email').value = user.email;
 
     // Filter and populate sessions
     const sessions = allAdminSessions.filter(s => s.userId && Number(s.userId.id) === Number(userId));

@@ -415,7 +415,6 @@
                                 <thead>
                                     <tr>
                                         <th>사용자명</th>
-                                        <th>이메일</th>
                                         <th>가입일</th>
                                         <th>역할</th>
                                         <th>관리</th>
@@ -547,15 +546,9 @@
                 <section class="detail-section edit-profile-section">
                     <h3>기본 정보 수정</h3>
                     <form id="form-admin-edit-user">
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label for="admin-edit-username">사용자명</label>
-                                <input type="text" id="admin-edit-username" placeholder="사용자명 입력" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="admin-edit-email">이메일</label>
-                                <input type="email" id="admin-edit-email" placeholder="이메일 입력" required>
-                            </div>
+                        <div class="form-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="admin-edit-username">사용자명</label>
+                            <input type="text" id="admin-edit-username" placeholder="사용자명 입력" required>
                         </div>
                         <button type="submit" class="btn btn-primary">수정 완료</button>
                     </form>
