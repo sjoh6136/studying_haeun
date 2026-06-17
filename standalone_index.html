@@ -2396,6 +2396,7 @@ tr:hover td {
 const API_BASE_URL = (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
     ? `${window.location.protocol}//${window.location.hostname}:5000/api`
     : 'http://localhost:5000/api';
+console.log("Using API Base URL:", API_BASE_URL);
 
 const TREE_EMOJIS = ['🌰', '🌱', '🌿', '🌲', '🌳', '🌸'];
 const TREE_STAGES = ['씨앗 (Seed)', '새싹 (Sprout)', '묘목 (Sapling)', '어린 나무 (Young Tree)', '성장한 나무 (Mature Tree)', '만개한 나무 (Blossomed Tree)'];
