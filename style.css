@@ -2025,30 +2025,43 @@ tr:hover td {
 }
 
 .day-session-info {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(255, 255, 255, 0.04);
-    padding: 2px 6px;
-    border-radius: 4px;
-    display: flex;
+    color: #ffffff;
+    background: rgba(var(--accent-rgb), 0.15);
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 6px;
     margin-bottom: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
     width: fit-content;
-    max-width: 90%;
+    max-width: 95%;
     pointer-events: none;
     box-sizing: border-box;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .day-session-info .focus-time {
     font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.day-session-info .focus-divider {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 0.75rem;
 }
 
 .day-session-info .focus-icon {
-    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.75rem;
 }
 
 .calendar-details-panel {

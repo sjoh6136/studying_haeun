@@ -4243,7 +4243,7 @@ function createDayCell(dayNum, date, isOtherMonth) {
         
         const infoDiv = document.createElement('div');
         infoDiv.className = 'day-session-info';
-        infoDiv.innerHTML = `<span class="focus-time">${totalMinutes}분</span> <span class="focus-icon">나무 X ${treeCount}</span>`;
+        infoDiv.innerHTML = `<span class="focus-time"><span class="material-symbols-rounded" style="font-size: 0.75rem; vertical-align: middle;">schedule</span>${totalMinutes}분</span><span class="focus-divider">|</span><span class="focus-icon">🌳 ${treeCount}</span>`;
         cell.appendChild(infoDiv);
     }
     
