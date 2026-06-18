@@ -110,6 +110,11 @@ const state = {
     timerMode: 'work', // 'work', 'short', 'long'
     timerRunning: false,
 
+    // Stopwatch
+    stopwatchTimer: null,
+    stopwatchTimeElapsed: 0,
+    stopwatchRunning: false,
+
     // Cumulative Focus & Stats
     accumulatedTime: 0,   // seconds since last tree completion
     dailyFocusTime: 0,    // total focus minutes today
@@ -390,6 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initStats();
     initTabs();
     initTimer();
+    initStopwatch();
     initMixer();
     initPlayer();
     initMemo();
@@ -1262,12 +1268,118 @@ function initTimer() {
         btn.addEventListener('click', () => setMode(btn.dataset.mode));
     });
 
+    // Expose pause function globally so Stopwatch can pause the Timer
+    window.pauseTimerGlobal = pauseTimer;
+
     startBtn.addEventListener('click', startTimer);
     pauseBtn.addEventListener('click', pauseTimer);
     resetBtn.addEventListener('click', resetTimer);
 
     // Initial state
     setMode('work');
+}
+
+// --- Focus Stopwatch (몰입 기록기) ---
+function initStopwatch() {
+    const timeEl = document.getElementById('stopwatch-time');
+    const startBtn = document.getElementById('btn-stopwatch-start');
+    const pauseBtn = document.getElementById('btn-stopwatch-pause');
+    const completeBtn = document.getElementById('btn-stopwatch-complete');
+    const circle = document.getElementById('stopwatch-progress');
+
+    if (!timeEl || !startBtn || !pauseBtn || !completeBtn || !circle) return;
+
+    // Circle properties
+    const radius = circle.r.baseVal.value;
+    const circumference = 2 * Math.PI * radius;
+    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+    circle.style.strokeDashoffset = circumference; // initially empty
+
+    const setProgress = percent => {
+        const offset = circumference - (percent * circumference);
+        circle.style.strokeDashoffset = offset;
+    };
+
+    const updateDisplay = () => {
+        timeEl.textContent = formatSecondsToHHMMSS(state.stopwatchTimeElapsed);
+        
+        // Progress ring wraps around every 1 hour (3600 seconds)
+        const progress = (state.stopwatchTimeElapsed % 3600) / 3600;
+        setProgress(progress);
+    };
+
+    const startStopwatch = () => {
+        if (state.stopwatchRunning) return;
+        
+        state.stopwatchRunning = true;
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        completeBtn.disabled = false;
+
+        state.stopwatchTimer = setInterval(() => {
+            state.stopwatchTimeElapsed++;
+            state.accumulatedTime++;
+            updateGrowingPlantUI();
+
+            // 50분마다 스트레칭 알림/알람 발생
+            if (state.accumulatedTime > 0 && state.accumulatedTime % (50 * 60) === 0) {
+                playChimeSound();
+                if (state.stretchEnabled && typeof window.triggerStretchReminder === 'function') {
+                    setTimeout(() => {
+                        window.triggerStretchReminder(600);
+                    }, 500);
+                } else {
+                    setTimeout(() => {
+                        alert("50분간 집중학습했습니다! 잠시 자리에서 일어나 스트레칭을 해주세요.");
+                    }, 500);
+                }
+            }
+
+            updateDisplay();
+        }, 1000);
+    };
+
+    const pauseStopwatch = () => {
+        if (!state.stopwatchRunning) return;
+        state.stopwatchRunning = false;
+        clearInterval(state.stopwatchTimer);
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+    };
+
+    const completeStopwatch = () => {
+        if (state.stopwatchTimeElapsed <= 0) return;
+        
+        const wasRunning = state.stopwatchRunning;
+        pauseStopwatch();
+
+        const elapsedMinutes = Math.round(state.stopwatchTimeElapsed / 60);
+        const actualStudyTime = formatSecondsToHHMMSS(state.stopwatchTimeElapsed);
+
+        if (confirm(`현재까지 집중한 시간(${actualStudyTime})을 저장하고 퇴근하시겠습니까?`)) {
+            saveStudySession(elapsedMinutes, actualStudyTime);
+            
+            state.stopwatchTimeElapsed = 0;
+            updateDisplay();
+            
+            completeBtn.disabled = true;
+        } else {
+            // resume if it was running
+            if (wasRunning) {
+                startStopwatch();
+            }
+        }
+    };
+
+    // Expose pause function globally so Timer can pause the Stopwatch
+    window.pauseStopwatchGlobal = pauseStopwatch;
+
+    startBtn.addEventListener('click', startStopwatch);
+    pauseBtn.addEventListener('click', pauseStopwatch);
+    completeBtn.addEventListener('click', completeStopwatch);
+
+    // Initial draw
+    updateDisplay();
 }
 
 // --- Synthesizer Bell/Chime Sound (Web Audio API) ---

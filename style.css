@@ -2534,3 +2534,122 @@ body.theme-day .calendar-day.has-study {
     background: rgba(var(--accent-rgb), 0.18);
     border-color: rgba(var(--accent-rgb), 0.4);
 }
+
+/* Combined Focus Widget Styles */
+.combined-focus-widgets-container {
+    display: flex;
+    width: 100%;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.combined-sub-widget {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 280px;
+    flex: 1;
+}
+
+/* Adjust button sizes inside the combined sub-widgets to prevent wrapping */
+.combined-sub-widget .timer-controls {
+    gap: 6px;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: nowrap;
+    margin-top: auto;
+}
+
+.combined-sub-widget .timer-controls .btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.combined-sub-widget .timer-controls .btn-icon-only {
+    padding: 8px;
+    flex-shrink: 0;
+}
+
+/* Style for stopwatch complete button to look like a premium success/done button */
+#btn-stopwatch-complete {
+    background: linear-gradient(135deg, #2ec4b6, #0f9f90) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(46, 196, 182, 0.25);
+}
+#btn-stopwatch-complete:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(46, 196, 182, 0.4);
+}
+#btn-stopwatch-complete:active:not(:disabled) {
+    transform: translateY(0);
+}
+#btn-stopwatch-complete:disabled {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: var(--text-secondary) !important;
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+/* Day mode styling overrides for the success button */
+body.theme-day #btn-stopwatch-complete {
+    background: linear-gradient(135deg, #2a9d8f, #1e7066) !important;
+}
+body.theme-day #btn-stopwatch-complete:disabled {
+    background: rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Sizing and layout adjustments for time setting box to prevent wrapping */
+.combined-sub-widget .timer-duration-setting {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    gap: 6px;
+}
+
+.combined-sub-widget .setting-label {
+    white-space: nowrap;
+}
+
+.combined-sub-widget .ios-picker-container {
+    width: 170px;
+    height: 80px;
+    margin: 0;
+}
+
+.combined-sub-widget .picker-wheel {
+    width: 42px;
+    height: 80px;
+}
+
+.combined-sub-widget .picker-selection-line {
+    height: 26px;
+}
+
+.combined-widget-divider {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    align-self: stretch;
+}
+
+@media (max-width: 600px) {
+    .combined-focus-widgets-container {
+        flex-direction: column;
+        align-items: center;
+    }
+    .combined-widget-divider {
+        display: none;
+    }
+}

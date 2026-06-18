@@ -119,59 +119,106 @@
                         </div>
                     </div>
 
-                    <!-- Pomodoro Timer Card -->
-                    <div class="glass-card pomodoro-card" id="widget-pomodoro">
-                    <div class="card-header">
-                        <span class="material-symbols-rounded section-icon">timer</span>
-                        <h2>집중 타이머</h2>
-                    </div>
-                    
-                    <div class="timer-display-wrapper">
-                        <!-- SVG Circular Progress Bar -->
-                        <svg class="progress-ring" width="220" height="220">
-                            <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.06)" stroke-width="8" fill="transparent" r="100" cx="110" cy="110"/>
-                            <circle class="progress-ring__circle" id="timer-progress" stroke="var(--accent-glow)" stroke-width="8" fill="transparent" r="100" cx="110" cy="110"/>
-                        </svg>
-                        <div class="timer-text" id="timer-time">25:00</div>
-                    </div>
+                    <!-- Combined Focus Card (공부 기록 & 집중 타이머) -->
+                    <div class="glass-card combined-focus-card" id="widget-focus-combined" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 24px; gap: 24px; width: 100%;">
+                        <div class="card-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 100%; justify-content: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 12px;">
+                            <span class="material-symbols-rounded section-icon">auto_stories</span>
+                            <h2 style="font-size: 1.25rem;">공부 기록 & 집중 타이머</h2>
+                        </div>
+                        
+                        <!-- Side-by-Side container inside the combined card -->
+                        <div class="combined-focus-widgets-container" style="display: flex; width: 100%; justify-content: space-evenly; flex-wrap: wrap; gap: 24px;">
+                            
+                            <!-- Left: 공부 기록 Widget -->
+                            <div class="combined-sub-widget" id="sub-widget-stopwatch" style="display: flex; flex-direction: column; align-items: center; max-width: 280px; flex: 1;">
+                                <h3 style="font-size: 1rem; color: var(--accent); font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="material-symbols-rounded" style="font-size: 1.15rem;">history</span>공부 기록
+                                </h3>
+                                
+                                <div class="timer-display-wrapper" style="margin: 10px 0;">
+                                    <!-- SVG Circular Progress Bar -->
+                                    <svg class="progress-ring" width="220" height="220">
+                                        <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.06)" stroke-width="8" fill="transparent" r="100" cx="110" cy="110"/>
+                                        <circle class="progress-ring__circle" id="stopwatch-progress" stroke="var(--accent-glow)" stroke-width="8" fill="transparent" r="100" cx="110" cy="110"/>
+                                    </svg>
+                                    <div class="timer-text" id="stopwatch-time">00:00:00</div>
+                                </div>
 
-                    <div class="timer-modes">
-                        <button class="timer-mode-btn active" data-mode="work">공부</button>
-                        <button class="timer-mode-btn" data-mode="short">휴식</button>
-                        <button class="timer-mode-btn" data-mode="long">긴 휴식</button>
-                    </div>
+                                <div class="timer-duration-setting" style="justify-content: center; border: none; background: transparent; padding: 0; margin-bottom: 16px; min-height: 40px; display: flex; align-items: center;">
+                                    <span class="setting-label" style="text-align: center; font-size: 0.85rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; line-height: 1.3;">
+                                        <span class="material-symbols-rounded" style="font-size: 1rem; color: var(--accent);">notifications_active</span> 50분마다 스트레칭 알림이 활성화됩니다
+                                    </span>
+                                </div>
 
-                    <!-- Custom Duration Setter (iOS Roller Time Picker) -->
-                    <div class="timer-duration-setting">
-                        <span class="setting-label">시간 설정:</span>
-                        <div class="ios-picker-container" id="ios-time-picker">
-                            <div class="picker-selection-line"></div>
-                            <div class="picker-wheel" id="picker-wheel-hours" data-unit="hours">
-                                <div class="picker-scroll-wrapper"></div>
+                                <div class="timer-controls">
+                                    <button id="btn-stopwatch-start" class="btn btn-primary">
+                                        <span class="material-symbols-rounded">play_arrow</span>출근
+                                    </button>
+                                    <button id="btn-stopwatch-pause" class="btn btn-secondary" disabled>
+                                        <span class="material-symbols-rounded">pause</span>일시정지
+                                    </button>
+                                    <button id="btn-stopwatch-complete" class="btn btn-secondary" title="공부 완료">퇴근</button>
+                                </div>
                             </div>
-                            <span class="picker-colon">:</span>
-                            <div class="picker-wheel" id="picker-wheel-minutes" data-unit="minutes">
-                                <div class="picker-scroll-wrapper"></div>
+
+                            <!-- Divider line -->
+                            <div class="combined-widget-divider" style="width: 1px; background: rgba(255,255,255,0.06); align-self: stretch;"></div>
+
+                            <!-- Right: 집중 타이머 Widget -->
+                            <div class="combined-sub-widget" id="sub-widget-pomodoro" style="display: flex; flex-direction: column; align-items: center; max-width: 280px; flex: 1;">
+                                <h3 style="font-size: 1rem; color: var(--accent); font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="material-symbols-rounded" style="font-size: 1.15rem;">timer</span>집중 타이머
+                                </h3>
+                                
+                                <div class="timer-display-wrapper" style="margin: 10px 0;">
+                                    <!-- SVG Circular Progress Bar -->
+                                    <svg class="progress-ring" width="220" height="220">
+                                        <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.06)" stroke-width="8" fill="transparent" r="100" cx="110" cy="110"/>
+                                        <circle class="progress-ring__circle" id="timer-progress" stroke="var(--accent-glow)" stroke-width="8" fill="transparent" r="100" cx="110" cy="110"/>
+                                    </svg>
+                                    <div class="timer-text" id="timer-time">25:00</div>
+                                </div>
+
+                                <div class="timer-modes" style="margin-bottom: 12px;">
+                                    <button class="timer-mode-btn active" data-mode="work">공부</button>
+                                    <button class="timer-mode-btn" data-mode="short">휴식</button>
+                                    <button class="timer-mode-btn" data-mode="long">긴 휴식</button>
+                                </div>
+
+                                <!-- Custom Duration Setter (iOS Roller Time Picker) -->
+                                <div class="timer-duration-setting" style="margin-bottom: 16px;">
+                                    <span class="setting-label">시간 설정:</span>
+                                    <div class="ios-picker-container" id="ios-time-picker">
+                                        <div class="picker-selection-line"></div>
+                                        <div class="picker-wheel" id="picker-wheel-hours" data-unit="hours">
+                                            <div class="picker-scroll-wrapper"></div>
+                                        </div>
+                                        <span class="picker-colon">:</span>
+                                        <div class="picker-wheel" id="picker-wheel-minutes" data-unit="minutes">
+                                            <div class="picker-scroll-wrapper"></div>
+                                        </div>
+                                        <span class="picker-colon">:</span>
+                                        <div class="picker-wheel" id="picker-wheel-seconds" data-unit="seconds">
+                                            <div class="picker-scroll-wrapper"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="timer-controls">
+                                    <button id="btn-timer-start" class="btn btn-primary">
+                                        <span class="material-symbols-rounded">play_arrow</span>시작
+                                    </button>
+                                    <button id="btn-timer-pause" class="btn btn-secondary" disabled>
+                                        <span class="material-symbols-rounded">pause</span>일시정지
+                                    </button>
+                                    <button id="btn-timer-reset" class="btn btn-icon-only" title="초기화">
+                                        <span class="material-symbols-rounded">replay</span>
+                                    </button>
+                                </div>
                             </div>
-                            <span class="picker-colon">:</span>
-                            <div class="picker-wheel" id="picker-wheel-seconds" data-unit="seconds">
-                                <div class="picker-scroll-wrapper"></div>
-                            </div>
+
                         </div>
                     </div>
-
-                    <div class="timer-controls">
-                        <button id="btn-timer-start" class="btn btn-primary">
-                            <span class="material-symbols-rounded">play_arrow</span>시작
-                        </button>
-                        <button id="btn-timer-pause" class="btn btn-secondary" disabled>
-                            <span class="material-symbols-rounded">pause</span>일시정지
-                        </button>
-                        <button id="btn-timer-reset" class="btn btn-icon-only" title="초기화">
-                            <span class="material-symbols-rounded">replay</span>
-                        </button>
-                    </div>
-                </div>
             </section>
 
             <!-- Right Side: Ambient Hub (Music & Sounds) -->
