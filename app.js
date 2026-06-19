@@ -262,12 +262,88 @@ function initTheme() {
     }
 }
 
+async function syncOfflineData() {
+    if (!state.user) return;
+
+    // 1. Sync study sessions
+    try {
+        const savedSessions = localStorage.getItem('study-space-sessions');
+        if (savedSessions) {
+            let localSessions = JSON.parse(savedSessions);
+            const unsyncedSessions = localSessions.filter(s => s.unsynced);
+            
+            if (unsyncedSessions.length > 0) {
+                console.log(`Syncing ${unsyncedSessions.length} offline sessions...`);
+                for (const session of unsyncedSessions) {
+                    try {
+                        const duration = Number(session.duration || 0);
+                        const treePlanted = session.tree || '';
+                        const startTime = session.start_time || new Date(Date.now() - duration * 60 * 1000).toISOString();
+                        
+                        await apiFetch('/sessions', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                duration,
+                                treePlanted,
+                                startTime
+                            })
+                        });
+                        session.unsynced = false;
+                    } catch (err) {
+                        console.error('Failed to sync study session:', err);
+                    }
+                }
+                
+                const updatedSessions = localSessions.map(s => {
+                    if (s.unsynced === false) delete s.unsynced;
+                    return s;
+                });
+                localStorage.setItem('study-space-sessions', JSON.stringify(updatedSessions));
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing study sessions:', e);
+    }
+
+    // 2. Sync memos
+    try {
+        const savedMemos = localStorage.getItem('study-space-todos');
+        if (savedMemos) {
+            let localMemos = JSON.parse(savedMemos);
+            const unsyncedMemos = localMemos.filter(m => m.unsynced);
+            
+            if (unsyncedMemos.length > 0) {
+                console.log(`Syncing ${unsyncedMemos.length} offline memos...`);
+                for (const memo of unsyncedMemos) {
+                    try {
+                        await apiFetch('/memos', {
+                            method: 'POST',
+                            body: JSON.stringify({ content: memo.content || memo.text })
+                        });
+                        memo.unsynced = false;
+                    } catch (err) {
+                        console.error('Failed to sync memo:', err);
+                    }
+                }
+                localStorage.removeItem('study-space-todos');
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing memos:', e);
+    }
+
+    await initStats();
+    await initMemo();
+    await updateCalendarTab();
+}
+
 function initAuth() {
     const token = localStorage.getItem('lofi-study-token');
     const savedUser = localStorage.getItem('lofi-study-user');
     if (token && savedUser) {
         try {
             state.user = JSON.parse(savedUser);
+            syncOfflineData();
         } catch (e) {
             state.user = null;
             localStorage.removeItem('lofi-study-token');
@@ -347,9 +423,7 @@ function initAuth() {
                     
                     mainLoginForm.reset();
                     updateAuthUI();
-                    await initMemo();
-                    await initStats();
-                    await updateCalendarTab();
+                    await syncOfflineData();
                 }
             } catch (err) {
                 alert(err.message || '인증 처리에 실패했습니다.');
@@ -1740,6 +1814,20 @@ async function initMemo() {
         const text = currentInput ? currentInput.value.trim() : '';
         if (!text) return;
 
+        const saveMemoLocally = (unsynced = false) => {
+            const newTodo = {
+                id: Date.now(),
+                text: text,
+                completed: false
+            };
+            if (unsynced) {
+                newTodo.unsynced = true;
+            }
+            todos.push(newTodo);
+            localStorage.setItem('study-space-todos', JSON.stringify(todos));
+            renderMemos(todos);
+        };
+
         if (state.user) {
             try {
                 await apiFetch('/memos', {
@@ -1748,16 +1836,14 @@ async function initMemo() {
                 });
                 if (currentInput) currentInput.value = '';
                 initMemo();
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error('Failed to save memo on server, saving locally for later sync:', e);
+                saveMemoLocally(true);
+                if (currentInput) currentInput.value = '';
+            }
         } else {
-            todos.push({
-                id: Date.now(),
-                text: text,
-                completed: false
-            });
+            saveMemoLocally(false);
             if (currentInput) currentInput.value = '';
-            localStorage.setItem('study-space-todos', JSON.stringify(todos));
-            renderMemos(todos);
         }
     };
 
@@ -2414,6 +2500,33 @@ function calculateComparisonStats() {
 }
 
 async function saveStudySession(duration, treePlanted) {
+    const saveSessionLocally = (unsynced = false) => {
+        state.dailyFocusTime += duration;
+        localStorage.setItem('study-space-daily-focus', String(state.dailyFocusTime));
+        
+        state.treesPlantedCount = Math.floor(state.dailyFocusTime / 60);
+        state.plantedTrees = Array(state.treesPlantedCount).fill('🌳');
+        localStorage.setItem('study-space-planted-trees', JSON.stringify(state.plantedTrees));
+        
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const localSession = {
+            time: timeStr,
+            duration: duration,
+            tree: treePlanted,
+            start_time: new Date(Date.now() - duration * 60 * 1000).toISOString(),
+            end_time: now.toISOString()
+        };
+        if (unsynced) {
+            localSession.unsynced = true;
+        }
+        
+        state.sessionHistory.unshift(localSession);
+        localStorage.setItem('study-space-sessions', JSON.stringify(state.sessionHistory));
+        updateStatsTab();
+    };
+
     if (state.user) {
         try {
             await apiFetch('/sessions', {
@@ -2426,26 +2539,11 @@ async function saveStudySession(duration, treePlanted) {
             });
             await initStats();
         } catch (e) {
-            console.error('Failed to save study session:', e);
+            console.error('Failed to save study session on server, saving locally for later sync:', e);
+            saveSessionLocally(true);
         }
     } else {
-        state.dailyFocusTime += duration;
-        localStorage.setItem('study-space-daily-focus', String(state.dailyFocusTime));
-        
-        // 1시간당 나무 1그루 계산하여 상태 갱신
-        state.treesPlantedCount = Math.floor(state.dailyFocusTime / 60);
-        state.plantedTrees = Array(state.treesPlantedCount).fill('🌳');
-        localStorage.setItem('study-space-planted-trees', JSON.stringify(state.plantedTrees));
-        
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        state.sessionHistory.unshift({
-            time: timeStr,
-            duration: duration,
-            tree: treePlanted
-        });
-        localStorage.setItem('study-space-sessions', JSON.stringify(state.sessionHistory));
-        updateStatsTab();
+        saveSessionLocally(false);
     }
 }
 
